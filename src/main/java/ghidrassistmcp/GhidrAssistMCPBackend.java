@@ -34,6 +34,7 @@ import ghidrassistmcp.tools.RenameDataTool;
 import ghidrassistmcp.tools.RenameFunctionByAddressTool;
 import ghidrassistmcp.tools.RenameFunctionTool;
 import ghidrassistmcp.tools.RenameVariableTool;
+import ghidrassistmcp.tools.SearchClassesTool;
 import ghidrassistmcp.tools.SearchFunctionsTool;
 import ghidrassistmcp.tools.SetDecompilerCommentTool;
 import ghidrassistmcp.tools.SetDisassemblyCommentTool;
@@ -80,6 +81,7 @@ public class GhidrAssistMCPBackend implements McpBackend {
         registerTool(new ListDataTool());
         registerTool(new ListNamespacesTool());
         registerTool(new ListClassesTool());
+        registerTool(new SearchClassesTool());
         registerTool(new RenameDataTool());
         registerTool(new FunctionXrefsTool());
         registerTool(new SetFunctionPrototypeTool());

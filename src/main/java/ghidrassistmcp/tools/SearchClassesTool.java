@@ -20,28 +20,30 @@ import ghidrassistmcp.McpTool;
 import io.modelcontextprotocol.spec.McpSchema;
 
 /**
- * MCP tool that lists classes defined in the program.
+ * MCP tool that searches for classes/structures by name pattern.
  */
-public class ListClassesTool implements McpTool {
+public class SearchClassesTool implements McpTool {
     
     @Override
     public String getName() {
-        return "list_classes";
+        return "search_classes";
     }
     
     @Override
     public String getDescription() {
-        return "List classes defined in the program";
+        return "Search for classes by name pattern (supports partial matching)";
     }
     
     @Override
     public McpSchema.JsonSchema getInputSchema() {
         return new McpSchema.JsonSchema("object", 
             Map.of(
+                "pattern", new McpSchema.JsonSchema("string", null, null, null, null, null),
+                "case_sensitive", new McpSchema.JsonSchema("boolean", null, null, null, null, null),
                 "offset", new McpSchema.JsonSchema("integer", null, null, null, null, null),
                 "limit", new McpSchema.JsonSchema("integer", null, null, null, null, null)
             ),
-            List.of(), null, null, null);
+            List.of("pattern"), null, null, null);
     }
     
     @Override
@@ -52,7 +54,19 @@ public class ListClassesTool implements McpTool {
                 .build();
         }
         
+        String pattern = (String) arguments.get("pattern");
+        if (pattern == null || pattern.trim().isEmpty()) {
+            return McpSchema.CallToolResult.builder()
+                .addTextContent("pattern parameter is required")
+                .build();
+        }
+        
         // Parse optional parameters
+        boolean caseSensitive = true;
+        if (arguments.get("case_sensitive") instanceof Boolean) {
+            caseSensitive = (Boolean) arguments.get("case_sensitive");
+        }
+        
         int offset = 0;
         int limit = 100; // Default limit
         
@@ -66,25 +80,36 @@ public class ListClassesTool implements McpTool {
         // Get all class names using comprehensive approach
         Set<String> allClassNames = getAllClassNames(currentProgram);
         
-        // Convert to sorted list
-        List<String> sortedClasses = new ArrayList<>(allClassNames);
-        Collections.sort(sortedClasses);
+        // Filter by pattern
+        List<String> matchingClasses = new ArrayList<>();
+        String searchPattern = caseSensitive ? pattern : pattern.toLowerCase();
+        
+        for (String className : allClassNames) {
+            String nameToSearch = caseSensitive ? className : className.toLowerCase();
+            if (nameToSearch.contains(searchPattern)) {
+                matchingClasses.add(className);
+            }
+        }
+        
+        // Sort for consistent output
+        Collections.sort(matchingClasses);
         
         StringBuilder result = new StringBuilder();
-        result.append("Classes in program:\n\n");
+        result.append("Classes matching pattern: \"").append(pattern).append("\"");
+        result.append(" (case ").append(caseSensitive ? "sensitive" : "insensitive").append(")\n\n");
         
-        int totalCount = sortedClasses.size();
+        int totalCount = matchingClasses.size();
         int count = 0;
         
-        for (int i = offset; i < sortedClasses.size() && count < limit; i++) {
-            result.append("- ").append(sortedClasses.get(i)).append("\n");
+        for (int i = offset; i < matchingClasses.size() && count < limit; i++) {
+            result.append("- ").append(matchingClasses.get(i)).append("\n");
             count++;
         }
         
         if (totalCount == 0) {
-            result.append("No classes found in the program.");
+            result.append("No classes found matching pattern: \"").append(pattern).append("\"");
         } else {
-            result.append("\nShowing ").append(count).append(" of ").append(totalCount).append(" classes");
+            result.append("\nShowing ").append(count).append(" of ").append(totalCount).append(" matching classes");
             if (offset > 0) {
                 result.append(" (offset: ").append(offset).append(")");
             }

@@ -99,9 +99,9 @@ public class SetLocalVariableTypeTool implements McpTool {
                     .build();
             }
             
-            if (results.getErrorMessage() != null) {
+            if (results.isValid() == false) {
                 return McpSchema.CallToolResult.builder()
-                    .addTextContent("Decompilation error: " + results.getErrorMessage())
+                    .addTextContent("Decompilation error for function " + functionName + ": " + results.getErrorMessage())
                     .build();
             }
             
