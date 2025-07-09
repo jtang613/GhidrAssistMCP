@@ -1,0 +1,13 @@
+.antProperties.xml
+.classpath
+.gradle/
+.settings/
+bin/
+data/
+dist/
+ghidra_scripts/
+lib/
+os/
+lucene/
+ghidrassist_analysis.db
+ghidrassist_rlhf.db
