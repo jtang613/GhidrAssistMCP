@@ -15,6 +15,12 @@ GhidrAssistMCP bridges the gap between AI-powered analysis tools and Ghidra's co
 - ** Dynamic Tool Management**: Enable/disable tools individually with persistent settings
 - ** Current Context Awareness**: Tools that understand Ghidra's current cursor position and active function
 
+## Screenshots
+
+![Screenshot](https://github.com/jtang613/GhidrAssistMCP/res/Screenshot1.png)
+![Screenshot](https://github.com/jtang613/GhidrAssistMCP/res/Screenshot2.png)
+
+
 ## Installation
 
 ### Prerequisites
