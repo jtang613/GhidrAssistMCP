@@ -223,7 +223,7 @@ public class ListClassesTool implements McpTool {
                 String name = symbol.getName();
                 
                 // Look for vtable symbols
-                if (name.toLowerCase().contains("vtable")) {
+                if (name.toLowerCase().contains("vtable") || name.toLowerCase().contains("vftable")) {
                     String className = extractClassNameFromVTable(name);
                     if (className != null && !className.isEmpty()) {
                         classNames.add(className);
@@ -249,9 +249,19 @@ public class ListClassesTool implements McpTool {
             return vtableName.substring("vtable for ".length());
         }
         
+        // Handle "vftable for ClassName" pattern
+        if (vtableName.startsWith("vftable for ")) {
+            return vtableName.substring("vftable for ".length());
+        }
+        
         // Handle "ClassName::vtable" pattern  
         if (vtableName.contains("::vtable")) {
             return vtableName.substring(0, vtableName.indexOf("::vtable"));
+        }
+        
+        // Handle "ClassName::vftable" pattern  
+        if (vtableName.contains("::vftable")) {
+            return vtableName.substring(0, vtableName.indexOf("::vftable"));
         }
         
         return null;
