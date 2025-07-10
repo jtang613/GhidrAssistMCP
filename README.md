@@ -9,7 +9,7 @@ GhidrAssistMCP bridges the gap between AI-powered analysis tools and Ghidra's co
 ### Key Features
 
 - ** MCP Server Integration**: Full Model Context Protocol server implementation using official SDK
-- ** 29 Built-in Tools**: Comprehensive set of analysis tools covering functions, data, cross-references, and more
+- ** 31 Built-in Tools**: Comprehensive set of analysis tools covering functions, data, cross-references, and more
 - ** Configurable UI**: Easy-to-use interface for managing tools and monitoring activity
 - ** Real-time Logging**: Track all MCP requests and responses with detailed logging
 - ** Dynamic Tool Management**: Enable/disable tools individually with persistent settings
@@ -108,11 +108,13 @@ The Configuration tab allows you to:
 
 #### Function Analysis
 - `get_function_info` - Get detailed function information
+- `get_class_info` - Get detailed class information
 - `get_function_by_address` - Find function at specific address
 - `get_current_function` - Get function at cursor position
 - `decompile_function` - Decompile function to C-like code
 - `disassemble_function` - Get assembly disassembly
 - `search_functions` - Search functions by name pattern
+- `search_classes` - Search classes by name pattern
 - `function_xrefs` - Get function cross-references
 
 #### Location & Navigation
