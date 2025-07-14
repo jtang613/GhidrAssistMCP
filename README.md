@@ -8,12 +8,12 @@ GhidrAssistMCP bridges the gap between AI-powered analysis tools and Ghidra's co
 
 ### Key Features
 
-- ** MCP Server Integration**: Full Model Context Protocol server implementation using official SDK
-- ** 31 Built-in Tools**: Comprehensive set of analysis tools covering functions, data, cross-references, and more
-- ** Configurable UI**: Easy-to-use interface for managing tools and monitoring activity
-- ** Real-time Logging**: Track all MCP requests and responses with detailed logging
-- ** Dynamic Tool Management**: Enable/disable tools individually with persistent settings
-- ** Current Context Awareness**: Tools that understand Ghidra's current cursor position and active function
+- **MCP Server Integration**: Full Model Context Protocol server implementation using official SDK
+- **31 Built-in Tools**: Comprehensive set of analysis tools covering functions, data, cross-references, and more
+- **Configurable UI**: Easy-to-use interface for managing tools and monitoring activity
+- **Real-time Logging**: Track all MCP requests and responses with detailed logging
+- **Dynamic Tool Management**: Enable/disable tools individually with persistent settings
+- **Current Context Awareness**: Tools that understand Ghidra's current cursor position and active function
 
 ## Clients
 
@@ -91,7 +91,7 @@ Shameless self-promotion: [GhidrAssist](https://github.com/jtang613/GhidrAssist)
 ### Tool Management
 
 The Configuration tab allows you to:
-- **View all available tools** (29 total)
+- **View all available tools** (31 total)
 - **Enable/disable individual tools** using checkboxes
 - **Save configuration** to persist across sessions
 - **Monitor tool status** in real-time
@@ -390,6 +390,6 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ---
 
-** Questions or Issues?**
+**Questions or Issues?**
 
 Please open an issue on the project repository for bug reports, feature requests, or questions about usage and development.

@@ -387,25 +387,21 @@ public class GhidrAssistMCPProvider extends ComponentProvider implements McpEven
     // McpEventListener implementation
     @Override
     public void onToolRequest(String toolName, String parameters) {
-        System.out.println("DEBUG: onToolRequest called - " + toolName + " with params: " + parameters);
         logRequest(toolName, parameters);
     }
     
     @Override
     public void onToolResponse(String toolName, String response) {
-        System.out.println("DEBUG: onToolResponse called - " + toolName + " with response: " + response);
         logResponse(toolName, response);
     }
     
     @Override
     public void onSessionEvent(String event) {
-        System.out.println("DEBUG: onSessionEvent called - " + event);
         logSession(event);
     }
     
     @Override
     public void onLogMessage(String message) {
-        System.out.println("DEBUG: onLogMessage called - " + message);
         logMessage(message);
     }
 }
