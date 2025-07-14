@@ -26,6 +26,7 @@ import ghidra.program.model.listing.Program;
 import ghidra.program.model.listing.Variable;
 import ghidra.program.model.pcode.HighFunction;
 import ghidra.program.model.pcode.HighFunctionDBUtil;
+import ghidra.program.model.pcode.HighSymbol;
 import ghidra.program.model.pcode.HighVariable;
 import ghidra.program.model.symbol.SourceType;
 import ghidra.util.Msg;
@@ -164,23 +165,18 @@ public class AutoCreateStructTool implements McpTool {
             
             // Set up decompiler
             DecompInterface decompiler = new DecompInterface();
-            DecompileOptions options = new DecompileOptions();
-            decompiler.setOptions(options);
-            
-            if (!decompiler.openProgram(program)) {
-                errorMessage.append("Failed to initialize decompiler");
-                return;
-            }
+            setupDecompiler(decompiler, program);
             
             try {
                 // Decompile the function
-                DecompileResults decompileResults = decompiler.decompileFunction(function, 30, TaskMonitor.DUMMY);
-                HighFunction highFunction = decompileResults.getHighFunction();
+                DecompileResults results = decompiler.decompileFunction(function, 30, TaskMonitor.DUMMY);
                 
-                if (highFunction == null) {
-                    errorMessage.append("Failed to decompile function");
+                if (!results.decompileCompleted()) {
+                    errorMessage.append("Decompilation failed for function: ").append(function.getName());
                     return;
                 }
+
+                HighFunction highFunction = results.getHighFunction();
                 
                 // Find the variable
                 HighVariable highVar = findHighVariable(highFunction, variableName);
@@ -190,13 +186,13 @@ public class AutoCreateStructTool implements McpTool {
                 }
                 
                 // Create and apply the structure
-                createAndApplyStructureImpl(program, function, highVar, decompiler, successMessage, errorMessage);
+                createAndApplyStructureImpl(program, function, highVar, decompiler, highFunction, successMessage, errorMessage);
                 
                 success.set(true);
                 committed = true;
                 
             } finally {
-                decompiler.closeProgram();
+                decompiler.dispose();
             }
             
         } catch (Exception e) {
@@ -209,16 +205,16 @@ public class AutoCreateStructTool implements McpTool {
     }
     
     /**
-     * Core structure creation logic adapted from reference code
+     * Core structure creation logic from reference code
      */
     private void createAndApplyStructureImpl(Program program, Function function, HighVariable highVar, 
-                                           DecompInterface decompiler, StringBuilder successMessage, StringBuilder errorMessage) throws Exception {
+                                           DecompInterface decompiler, HighFunction highFunction, StringBuilder successMessage, StringBuilder errorMessage) throws Exception {
         
         // Try to use FillOutStructureHelper to process the structure
         // Note: This class may not be available in all Ghidra versions
         Structure structDT = null;
         try {
-            Class<?> fillHelperClass = Class.forName("ghidra.app.util.datatype.microsoft.FillOutStructureHelper");
+            Class<?> fillHelperClass = Class.forName("ghidra.app.decompiler.util.FillOutStructureHelper");
             Object fillHelper = fillHelperClass.getConstructor(Program.class, TaskMonitor.class)
                 .newInstance(program, TaskMonitor.DUMMY);
             
@@ -241,18 +237,18 @@ public class AutoCreateStructTool implements McpTool {
         structDT = (Structure) dtm.addDataType(structDT, DataTypeConflictHandler.DEFAULT_HANDLER);
         PointerDataType ptrStruct = new PointerDataType(structDT);
 
-        // Find the variable in the function
-        Variable var = findVariable(function, highVar.getSymbol().getName());
+        // Get variable from function - try both decompiler and disassembly contexts
+        Variable var = findVariableFromDecompiler(function, highFunction, highVar.getSymbol().getName());
         
-        if (var instanceof ghidra.program.model.listing.AutoParameterImpl) {
+        if (var != null && var instanceof ghidra.program.model.listing.AutoParameterImpl) {
             // Modify the function signature to change the data type of the auto-parameter
             updateFunctionParameter(function, var.getName(), ptrStruct);
             successMessage.append("Updated function parameter '").append(var.getName())
                          .append("' with structure type: ").append(structDT.getName());
         } else {
-            // Update local variable
+            // Update local variable directly through HighFunction
             HighFunctionDBUtil.updateDBVariable(highVar.getSymbol(), null, ptrStruct, SourceType.USER_DEFINED);
-            successMessage.append("Updated local variable '").append(var.getName())
+            successMessage.append("Updated local variable '").append(highVar.getSymbol().getName())
                          .append("' with structure type: ").append(structDT.getName());
         }
         
@@ -286,44 +282,103 @@ public class AutoCreateStructTool implements McpTool {
         return null;
     }
     
+    
     /**
-     * Find high variable by name in high function
+     * Setup decompiler with program options (from reference implementation)
      */
-    private HighVariable findHighVariable(HighFunction highFunction, String variableName) {
-        var localSymbolMap = highFunction.getLocalSymbolMap();
-        var symbols = localSymbolMap.getSymbols();
+    private void setupDecompiler(DecompInterface decompiler, Program program) {
+        DecompileOptions options = new DecompileOptions();
+        options.grabFromProgram(program);
+        decompiler.setOptions(options);
+        decompiler.openProgram(program);
+    }
+    
+    /**
+     * Find high variable by name in high function (from reference implementation)
+     */
+    private HighVariable findHighVariable(HighFunction highFunction, String varName) {
+        var symbols = highFunction.getLocalSymbolMap().getSymbols();
+        while (symbols.hasNext()) {
+            HighSymbol sym = symbols.next();
+            if (sym.getName().equals(varName)) {
+                return sym.getHighVariable();
+            }
+        }
+        return null;
+    }
+    
+    /**
+     * Commit local names to ensure all variables are available (from reference implementation)
+     */
+    private void commitLocalNames(Program program, Function function) {
+        try {
+            // This ensures all variables are available by flushing events
+            program.flushEvents();
+            // Force the function to update its variable information
+            if (function != null) {
+                function.getLocalVariables(); // This forces loading of local variables
+                function.getParameters(); // This forces loading of parameters
+            }
+        } catch (Exception e) {
+            // If commit fails, continue anyway
+            Msg.warn(this, "Failed to commit local names for function " + function.getName() + ": " + e.getMessage());
+        }
+    }
+    
+    /**
+     * Find variable from decompiler context - this handles decompiler-only variables
+     */
+    private Variable findVariableFromDecompiler(Function function, HighFunction highFunction, String varName) {
+        // Commit local names to ensure all variables are available
+        commitLocalNames(function.getProgram(), function);
         
+        // If not found in disassembly, the variable might only exist in decompiler context
+        // In this case, we need to work directly with the HighFunction
+        // Check if this is a parameter that maps to the decompiler's view
+        var symbols = highFunction.getLocalSymbolMap().getSymbols();
         while (symbols.hasNext()) {
             var symbol = symbols.next();
-            if (symbol.getName().equals(variableName)) {
-                return symbol.getHighVariable();
+            if (symbol.getName().equals(varName)) {
+                HighVariable highVar = symbol.getHighVariable();
+                if (highVar != null) {
+                    // Try to find a corresponding parameter by storage location
+                    try {
+                        var representative = highVar.getRepresentative();
+                        if (representative != null) {
+                            // Check parameters first
+                            for (Parameter param : function.getParameters()) {
+                                var storage = param.getVariableStorage();
+                                if (storage != null && storage.getVarnodes().length > 0) {
+                                    var paramVarnode = storage.getVarnodes()[0];
+                                    if (paramVarnode.getAddress().equals(representative.getAddress())) {
+                                        return param;
+                                    }
+                                }
+                            }
+                            
+                            // Check local variables by storage
+                            for (Variable localVar : function.getLocalVariables()) {
+                                var storage = localVar.getVariableStorage();
+                                if (storage != null && storage.getVarnodes().length > 0) {
+                                    var localVarnode = storage.getVarnodes()[0];
+                                    if (localVarnode.getAddress().equals(representative.getAddress())) {
+                                        return localVar;
+                                    }
+                                }
+                            }
+                        }
+                    } catch (Exception e) {
+                        // Continue if storage comparison fails
+                    }
+                }
             }
         }
         
+        // If still not found, this is a decompiler-only variable
+        // Return null - we'll handle it through HighFunctionDBUtil.updateDBVariable
         return null;
     }
-    
-    /**
-     * Find variable in function by name
-     */
-    private Variable findVariable(Function function, String variableName) {
-        // Check parameters
-        for (Parameter param : function.getParameters()) {
-            if (param.getName().equals(variableName)) {
-                return param;
-            }
-        }
         
-        // Check local variables
-        for (Variable var : function.getLocalVariables()) {
-            if (var.getName().equals(variableName)) {
-                return var;
-            }
-        }
-        
-        return null;
-    }
-    
     /**
      * Update function parameter with new data type
      */
