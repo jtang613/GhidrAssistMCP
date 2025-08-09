@@ -70,13 +70,16 @@ public class RenameFunctionTool implements McpTool {
                 .build();
         }
         
-        // Perform the rename
+        // Perform the rename within a transaction
+        int transactionID = currentProgram.startTransaction("Rename Function");
         try {
             function.setName(newName, SourceType.USER_DEFINED);
+            currentProgram.endTransaction(transactionID, true);
             return McpSchema.CallToolResult.builder()
                 .addTextContent("Successfully renamed function '" + oldName + "' to '" + newName + "'")
                 .build();
         } catch (Exception e) {
+            currentProgram.endTransaction(transactionID, false);
             return McpSchema.CallToolResult.builder()
                 .addTextContent("Error renaming function: " + e.getMessage())
                 .build();

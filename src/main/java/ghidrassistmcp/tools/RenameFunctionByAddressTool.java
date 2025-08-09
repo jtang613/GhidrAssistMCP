@@ -81,20 +81,29 @@ public class RenameFunctionByAddressTool implements McpTool {
         
         String oldName = function.getName();
         
-        // Rename the function
+        // Rename the function within a transaction
+        int transactionID = currentProgram.startTransaction("Rename Function");
         try {
             function.setName(newName, SourceType.USER_DEFINED);
+            currentProgram.endTransaction(transactionID, true);
             return McpSchema.CallToolResult.builder()
                 .addTextContent("Successfully renamed function at " + addressStr + 
                               " from '" + oldName + "' to '" + newName + "'")
                 .build();
         } catch (DuplicateNameException e) {
+            currentProgram.endTransaction(transactionID, false);
             return McpSchema.CallToolResult.builder()
                 .addTextContent("Function with name '" + newName + "' already exists")
                 .build();
         } catch (InvalidInputException e) {
+            currentProgram.endTransaction(transactionID, false);
             return McpSchema.CallToolResult.builder()
                 .addTextContent("Invalid function name: " + newName)
+                .build();
+        } catch (Exception e) {
+            currentProgram.endTransaction(transactionID, false);
+            return McpSchema.CallToolResult.builder()
+                .addTextContent("Error renaming function: " + e.getMessage())
                 .build();
         }
     }

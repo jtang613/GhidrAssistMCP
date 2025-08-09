@@ -103,9 +103,12 @@ public class SetDisassemblyCommentTool implements McpTool {
                 .build();
         }
         
+        // Set the comment within a transaction
+        int transactionID = currentProgram.startTransaction("Set Disassembly Comment");
         try {
             // Set the comment
             codeUnit.setComment(commentType, comment);
+            currentProgram.endTransaction(transactionID, true);
             
             String commentTypeName = getCommentTypeName(commentType);
             return McpSchema.CallToolResult.builder()
@@ -113,6 +116,7 @@ public class SetDisassemblyCommentTool implements McpTool {
                               ": \"" + comment + "\"")
                 .build();
         } catch (Exception e) {
+            currentProgram.endTransaction(transactionID, false);
             return McpSchema.CallToolResult.builder()
                 .addTextContent("Error setting comment: " + e.getMessage())
                 .build();

@@ -116,24 +116,34 @@ public class RenameVariableTool implements McpTool {
                     .build();
             }
             
-            // Rename the variable using the underlying symbol
+            // Rename the variable using the underlying symbol within a transaction
+            int transactionID = currentProgram.startTransaction("Rename Variable");
             try {
                 if (targetSymbol.getSymbol() != null) {
                     targetSymbol.getSymbol().setName(newVariableName, SourceType.USER_DEFINED);
+                    currentProgram.endTransaction(transactionID, true);
                     return McpSchema.CallToolResult.builder()
                         .addTextContent("Successfully renamed variable '" + oldVariableName + "' to '" + newVariableName + "' in function '" + functionName + "'")
                         .build();
                 }
-				return McpSchema.CallToolResult.builder()
-				    .addTextContent("Cannot rename variable '" + oldVariableName + "' - no underlying symbol available")
-				    .build();
+                currentProgram.endTransaction(transactionID, false);
+                return McpSchema.CallToolResult.builder()
+                    .addTextContent("Cannot rename variable '" + oldVariableName + "' - no underlying symbol available")
+                    .build();
             } catch (DuplicateNameException e) {
+                currentProgram.endTransaction(transactionID, false);
                 return McpSchema.CallToolResult.builder()
                     .addTextContent("Variable with name '" + newVariableName + "' already exists in function '" + functionName + "'")
                     .build();
             } catch (InvalidInputException e) {
+                currentProgram.endTransaction(transactionID, false);
                 return McpSchema.CallToolResult.builder()
                     .addTextContent("Invalid variable name: " + newVariableName)
+                    .build();
+            } catch (Exception e) {
+                currentProgram.endTransaction(transactionID, false);
+                return McpSchema.CallToolResult.builder()
+                    .addTextContent("Error renaming variable: " + e.getMessage())
                     .build();
             }
             

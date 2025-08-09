@@ -68,72 +68,76 @@ public class RenameDataTool implements McpTool {
                 .build();
         }
         
-        // Try to find data at this address
-        Data data = currentProgram.getListing().getDataAt(address);
-        if (data != null) {
-            // Rename the data symbol
-            Symbol primarySymbol = data.getPrimarySymbol();
-            if (primarySymbol != null) {
-                String oldName = primarySymbol.getName();
+        // Try to find data at this address - wrap all operations in transaction
+        int transactionID = currentProgram.startTransaction("Rename Data");
+        try {
+            Data data = currentProgram.getListing().getDataAt(address);
+            if (data != null) {
+                // Rename the data symbol
+                Symbol primarySymbol = data.getPrimarySymbol();
+                if (primarySymbol != null) {
+                    String oldName = primarySymbol.getName();
+                    try {
+                        primarySymbol.setName(newName, SourceType.USER_DEFINED);
+                        currentProgram.endTransaction(transactionID, true);
+                        return McpSchema.CallToolResult.builder()
+                            .addTextContent("Successfully renamed data at " + addressStr + 
+                                          " from '" + oldName + "' to '" + newName + "'")
+                            .build();
+                    } catch (DuplicateNameException e) {
+                        currentProgram.endTransaction(transactionID, false);
+                        return McpSchema.CallToolResult.builder()
+                            .addTextContent("Symbol with name '" + newName + "' already exists")
+                            .build();
+                    } catch (InvalidInputException e) {
+                        currentProgram.endTransaction(transactionID, false);
+                        return McpSchema.CallToolResult.builder()
+                            .addTextContent("Invalid symbol name: " + newName)
+                            .build();
+                    }
+                }
+                // Create a new symbol for the data
+                currentProgram.getSymbolTable().createLabel(address, newName, SourceType.USER_DEFINED);
+                currentProgram.endTransaction(transactionID, true);
+                return McpSchema.CallToolResult.builder()
+                    .addTextContent("Successfully created label '" + newName + "' at " + addressStr)
+                    .build();
+            }
+            // No data at address, try to find any symbol and rename it
+            Symbol[] symbols = currentProgram.getSymbolTable().getSymbols(address);
+            if (symbols.length > 0) {
+                Symbol symbol = symbols[0]; // Use first symbol
+                String oldName = symbol.getName();
                 try {
-                    primarySymbol.setName(newName, SourceType.USER_DEFINED);
+                    symbol.setName(newName, SourceType.USER_DEFINED);
+                    currentProgram.endTransaction(transactionID, true);
                     return McpSchema.CallToolResult.builder()
-                        .addTextContent("Successfully renamed data at " + addressStr + 
+                        .addTextContent("Successfully renamed symbol at " + addressStr + 
                                       " from '" + oldName + "' to '" + newName + "'")
                         .build();
                 } catch (DuplicateNameException e) {
+                    currentProgram.endTransaction(transactionID, false);
                     return McpSchema.CallToolResult.builder()
                         .addTextContent("Symbol with name '" + newName + "' already exists")
                         .build();
                 } catch (InvalidInputException e) {
+                    currentProgram.endTransaction(transactionID, false);
                     return McpSchema.CallToolResult.builder()
                         .addTextContent("Invalid symbol name: " + newName)
                         .build();
                 }
             }
-			// Create a new symbol for the data
-			try {
-			    currentProgram.getSymbolTable().createLabel(address, newName, SourceType.USER_DEFINED);
-			    return McpSchema.CallToolResult.builder()
-			        .addTextContent("Successfully created label '" + newName + "' at " + addressStr)
-			        .build();
-			} catch (Exception e) {
-			    return McpSchema.CallToolResult.builder()
-			        .addTextContent("Error creating label: " + e.getMessage())
-			        .build();
-			}
+            // Create a new label at the address
+            currentProgram.getSymbolTable().createLabel(address, newName, SourceType.USER_DEFINED);
+            currentProgram.endTransaction(transactionID, true);
+            return McpSchema.CallToolResult.builder()
+                .addTextContent("Successfully created label '" + newName + "' at " + addressStr)
+                .build();
+        } catch (Exception e) {
+            currentProgram.endTransaction(transactionID, false);
+            return McpSchema.CallToolResult.builder()
+                .addTextContent("Error creating label: " + e.getMessage())
+                .build();
         }
-		// No data at address, try to find any symbol and rename it
-		Symbol[] symbols = currentProgram.getSymbolTable().getSymbols(address);
-		if (symbols.length > 0) {
-		    Symbol symbol = symbols[0]; // Use first symbol
-		    String oldName = symbol.getName();
-		    try {
-		        symbol.setName(newName, SourceType.USER_DEFINED);
-		        return McpSchema.CallToolResult.builder()
-		            .addTextContent("Successfully renamed symbol at " + addressStr + 
-		                          " from '" + oldName + "' to '" + newName + "'")
-		            .build();
-		    } catch (DuplicateNameException e) {
-		        return McpSchema.CallToolResult.builder()
-		            .addTextContent("Symbol with name '" + newName + "' already exists")
-		            .build();
-		    } catch (InvalidInputException e) {
-		        return McpSchema.CallToolResult.builder()
-		            .addTextContent("Invalid symbol name: " + newName)
-		            .build();
-		    }
-		}
-		// Create a new label at the address
-		try {
-		    currentProgram.getSymbolTable().createLabel(address, newName, SourceType.USER_DEFINED);
-		    return McpSchema.CallToolResult.builder()
-		        .addTextContent("Successfully created label '" + newName + "' at " + addressStr)
-		        .build();
-		} catch (Exception e) {
-		    return McpSchema.CallToolResult.builder()
-		        .addTextContent("Error creating label: " + e.getMessage())
-		        .build();
-		}
     }
 }

@@ -61,15 +61,19 @@ public class SetDecompilerCommentTool implements McpTool {
                 .build();
         }
         
+        // Set the function comment within a transaction
+        int transactionID = currentProgram.startTransaction("Set Function Comment");
         try {
             // Set the function comment (appears in decompiler)
             function.setComment(comment);
+            currentProgram.endTransaction(transactionID, true);
             
             return McpSchema.CallToolResult.builder()
                 .addTextContent("Successfully set decompiler comment on function '" + functionName + 
                               "': \"" + comment + "\"")
                 .build();
         } catch (Exception e) {
+            currentProgram.endTransaction(transactionID, false);
             return McpSchema.CallToolResult.builder()
                 .addTextContent("Error setting function comment: " + e.getMessage())
                 .build();
