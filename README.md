@@ -1,4 +1,5 @@
 # GhidrAssistMCP
+[![Trust Score](https://archestra.ai/mcp-catalog/api/badge/quality/jtang613/GhidrAssistMCP)](https://archestra.ai/mcp-catalog/jtang613__ghidrassistmcp)
 
 A powerful Ghidra extension that provides an MCP (Model Context Protocol) server, enabling AI assistants and other tools to interact with Ghidra's reverse engineering capabilities through a standardized API.
 
