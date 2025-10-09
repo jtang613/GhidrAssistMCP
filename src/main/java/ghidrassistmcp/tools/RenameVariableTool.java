@@ -12,6 +12,7 @@ import ghidra.app.decompiler.DecompileResults;
 import ghidra.program.model.listing.Function;
 import ghidra.program.model.listing.Program;
 import ghidra.program.model.pcode.HighFunction;
+import ghidra.program.model.pcode.HighFunctionDBUtil;
 import ghidra.program.model.pcode.HighSymbol;
 import ghidra.program.model.symbol.SourceType;
 import ghidra.util.exception.DuplicateNameException;
@@ -116,19 +117,14 @@ public class RenameVariableTool implements McpTool {
                     .build();
             }
             
-            // Rename the variable using the underlying symbol within a transaction
+            // Rename the variable within a transaction
             int transactionID = currentProgram.startTransaction("Rename Variable");
             try {
-                if (targetSymbol.getSymbol() != null) {
-                    targetSymbol.getSymbol().setName(newVariableName, SourceType.USER_DEFINED);
-                    currentProgram.endTransaction(transactionID, true);
-                    return McpSchema.CallToolResult.builder()
-                        .addTextContent("Successfully renamed variable '" + oldVariableName + "' to '" + newVariableName + "' in function '" + functionName + "'")
-                        .build();
-                }
-                currentProgram.endTransaction(transactionID, false);
+                HighFunctionDBUtil.updateDBVariable(targetSymbol, newVariableName, null, SourceType.USER_DEFINED);
+
+                currentProgram.endTransaction(transactionID, true);
                 return McpSchema.CallToolResult.builder()
-                    .addTextContent("Cannot rename variable '" + oldVariableName + "' - no underlying symbol available")
+                    .addTextContent("Successfully renamed variable '" + oldVariableName + "' to '" + newVariableName + "' in function '" + functionName + "'")
                     .build();
             } catch (DuplicateNameException e) {
                 currentProgram.endTransaction(transactionID, false);
