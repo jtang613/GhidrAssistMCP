@@ -3,6 +3,7 @@
  */
 package ghidrassistmcp;
 
+import java.time.Duration;
 import java.util.Map;
 import java.util.function.BiFunction;
 
@@ -10,8 +11,7 @@ import org.eclipse.jetty.server.Server;
 import org.eclipse.jetty.servlet.ServletContextHandler;
 import org.eclipse.jetty.servlet.ServletHolder;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-
+import io.modelcontextprotocol.json.McpJsonMapper;
 import io.modelcontextprotocol.server.McpServer;
 import io.modelcontextprotocol.server.McpSyncServerExchange;
 import io.modelcontextprotocol.server.transport.HttpServletSseServerTransportProvider;
@@ -57,11 +57,15 @@ public class GhidrAssistMCPServer {
             
             // Create MCP transport provider using simple constructor
             Msg.info(this, "Creating MCP transport provider");
-            ObjectMapper mapper = new ObjectMapper();
+            McpJsonMapper mapper = McpJsonMapper.getDefault();
             String messageEndpoint = "message";
             
-            HttpServletSseServerTransportProvider transportProvider = 
-                new HttpServletSseServerTransportProvider(mapper, messageEndpoint);
+            HttpServletSseServerTransportProvider transportProvider =
+                HttpServletSseServerTransportProvider.builder()
+                    .jsonMapper(mapper)
+                    .messageEndpoint(messageEndpoint)
+                    .keepAliveInterval(Duration.ofSeconds(15))
+                    .build();
             
             // Build MCP server using backend for configuration
             Msg.info(this, "Building MCP server with backend tools");
@@ -72,13 +76,14 @@ public class GhidrAssistMCPServer {
             // Register each tool individually with its own handler
             for (McpSchema.Tool toolSchema : backend.getAvailableTools()) {
                 String toolName = toolSchema.name();
-                BiFunction<McpSyncServerExchange, Map<String, Object>, McpSchema.CallToolResult> toolHandler = 
-                    (exchange, params) -> {
+                BiFunction<McpSyncServerExchange, McpSchema.CallToolRequest, McpSchema.CallToolResult> toolHandler =
+                    (exchange, request) -> {
                         // The backend now handles all logging through event listeners
+                        Map<String, Object> params = request.arguments();
                         return backend.callTool(toolName, params);
                     };
                 
-                serverBuilder.tool(toolSchema, toolHandler);
+                serverBuilder.toolCall(toolSchema, toolHandler);
                 Msg.info(this, "Registered tool with MCP server: " + toolName);
             }
             
