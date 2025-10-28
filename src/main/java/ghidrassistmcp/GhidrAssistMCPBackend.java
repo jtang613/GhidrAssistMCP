@@ -21,6 +21,7 @@ import ghidrassistmcp.tools.GetCurrentAddressTool;
 import ghidrassistmcp.tools.GetCurrentFunctionTool;
 import ghidrassistmcp.tools.GetFunctionByAddressTool;
 import ghidrassistmcp.tools.GetFunctionInfoTool;
+import ghidrassistmcp.tools.GetHexdumpTool;
 import ghidrassistmcp.tools.ListClassesTool;
 import ghidrassistmcp.tools.ListDataTool;
 import ghidrassistmcp.tools.ListExportsTool;
@@ -76,6 +77,7 @@ public class GhidrAssistMCPBackend implements McpBackend {
         registerTool(new SearchFunctionsTool());
         registerTool(new GetFunctionByAddressTool());
         registerTool(new GetCurrentAddressTool());
+        registerTool(new GetHexdumpTool());
         registerTool(new GetCurrentFunctionTool());
         registerTool(new SetDisassemblyCommentTool());
         registerTool(new SetDecompilerCommentTool());
