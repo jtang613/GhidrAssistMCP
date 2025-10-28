@@ -120,8 +120,12 @@ public class GhidrAssistMCPBackend implements McpBackend {
             if (toolEnabledStates.getOrDefault(tool.getName(), true)) {
                 toolList.add(new McpSchema.Tool(
                     tool.getName(),
+                    tool.getName(),
                     tool.getDescription(),
-                    tool.getInputSchema()
+                    tool.getInputSchema(),
+                    null,
+                    null,
+                    null
                 ));
             }
         }
@@ -354,8 +358,12 @@ public class GhidrAssistMCPBackend implements McpBackend {
         for (McpTool tool : tools.values()) {
             toolList.add(new McpSchema.Tool(
                 tool.getName(),
+                tool.getName(),
                 tool.getDescription(),
-                tool.getInputSchema()
+                tool.getInputSchema(),
+                null,
+                null,
+                null
             ));
         }
         // Sort tools alphabetically by name for consistent ordering
