@@ -118,15 +118,12 @@ public class GhidrAssistMCPBackend implements McpBackend {
         for (McpTool tool : tools.values()) {
             // Only include enabled tools in the available tools list
             if (toolEnabledStates.getOrDefault(tool.getName(), true)) {
-                toolList.add(new McpSchema.Tool(
-                    tool.getName(),
-                    tool.getName(),
-                    tool.getDescription(),
-                    tool.getInputSchema(),
-                    null,
-                    null,
-                    null
-                ));
+                toolList.add(McpSchema.Tool.builder()
+                    .name(tool.getName())
+                    .title(tool.getName())
+                    .description(tool.getDescription())
+                    .inputSchema(tool.getInputSchema())
+                    .build());
             }
         }
         // Sort tools alphabetically by name for consistent ordering
@@ -356,15 +353,12 @@ public class GhidrAssistMCPBackend implements McpBackend {
     public List<McpSchema.Tool> getAllTools() {
         List<McpSchema.Tool> toolList = new ArrayList<>();
         for (McpTool tool : tools.values()) {
-            toolList.add(new McpSchema.Tool(
-                tool.getName(),
-                tool.getName(),
-                tool.getDescription(),
-                tool.getInputSchema(),
-                null,
-                null,
-                null
-            ));
+            toolList.add(McpSchema.Tool.builder()
+                .name(tool.getName())
+                .title(tool.getName())
+                .description(tool.getDescription())
+                .inputSchema(tool.getInputSchema())
+                .build());
         }
         // Sort tools alphabetically by name for consistent ordering
         toolList.sort((a, b) -> a.name().compareToIgnoreCase(b.name()));

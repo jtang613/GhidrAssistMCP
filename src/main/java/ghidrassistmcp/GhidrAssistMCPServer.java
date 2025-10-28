@@ -59,20 +59,20 @@ public class GhidrAssistMCPServer {
             Msg.info(this, "Creating MCP transport provider");
             McpJsonMapper mapper = McpJsonMapper.getDefault();
             String messageEndpoint = "message";
-            
+
             HttpServletSseServerTransportProvider transportProvider =
                 HttpServletSseServerTransportProvider.builder()
                     .jsonMapper(mapper)
                     .messageEndpoint(messageEndpoint)
                     .keepAliveInterval(Duration.ofSeconds(15))
                     .build();
-            
+
             // Build MCP server using backend for configuration
             Msg.info(this, "Building MCP server with backend tools");
             var serverBuilder = McpServer.sync(transportProvider)
                 .serverInfo(backend.getServerInfo())
                 .capabilities(backend.getCapabilities());
-            
+
             // Register each tool individually with its own handler
             for (McpSchema.Tool toolSchema : backend.getAvailableTools()) {
                 String toolName = toolSchema.name();
@@ -82,11 +82,11 @@ public class GhidrAssistMCPServer {
                         Map<String, Object> params = request.arguments();
                         return backend.callTool(toolName, params);
                     };
-                
+
                 serverBuilder.toolCall(toolSchema, toolHandler);
                 Msg.info(this, "Registered tool with MCP server: " + toolName);
             }
-            
+
             serverBuilder.build();
             
             // Register MCP servlet - use root path since transport provider handles routing internally
