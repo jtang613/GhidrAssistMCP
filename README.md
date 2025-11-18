@@ -9,6 +9,7 @@ GhidrAssistMCP bridges the gap between AI-powered analysis tools and Ghidra's co
 ### Key Features
 
 - **MCP Server Integration**: Full Model Context Protocol server implementation using official SDK
+- **Dual HTTP Transports**: Supports SSE and Streamable HTTP transports for maximum client compatibility
 - **31 Built-in Tools**: Comprehensive set of analysis tools covering functions, data, cross-references, and more
 - **Configurable UI**: Easy-to-use interface for managing tools and monitoring activity
 - **Real-time Logging**: Track all MCP requests and responses with detailed logging
@@ -217,7 +218,7 @@ The Configuration tab allows you to:
 ```
 GhidrAssistMCP/
 ├── GhidrAssistMCPPlugin      # Main plugin entry point
-├── GhidrAssistMCPServer      # HTTP/SSE MCP server
+├── GhidrAssistMCPServer      # HTTP MCP server (SSE + Streamable)
 ├── GhidrAssistMCPBackend     # Tool management and execution
 ├── GhidrAssistMCPProvider    # UI component provider
 └── tools/                    # Individual MCP tools
@@ -228,10 +229,15 @@ GhidrAssistMCP/
 
 ### MCP Protocol Implementation
 
-- **Transport**: HTTP with Server-Sent Events (SSE)
+- **Transports**:
+  - HTTP with Server-Sent Events (SSE)
+  - Streamable HTTP
 - **Endpoints**:
   - `GET /sse` - SSE connection for bidirectional communication
   - `POST /message` - Message exchange endpoint
+  - `GET /mcp` - Receive Streamable HTTP events
+  - `POST /mcp` - Initialize Streamable HTTP session
+  - `DELETE /mcp` - Terminate Streamable HTTP session
 - **Tool Registration**: Dynamic tool discovery and registration
 - **Session Management**: Stateful sessions with proper lifecycle management
 
