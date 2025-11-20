@@ -39,6 +39,7 @@ import ghidrassistmcp.tools.RenameStructureFieldTool;
 import ghidrassistmcp.tools.RenameVariableTool;
 import ghidrassistmcp.tools.SearchClassesTool;
 import ghidrassistmcp.tools.SearchFunctionsTool;
+import ghidrassistmcp.tools.SetDataTypeTool;
 import ghidrassistmcp.tools.SetDecompilerCommentTool;
 import ghidrassistmcp.tools.SetDisassemblyCommentTool;
 import ghidrassistmcp.tools.SetFunctionPrototypeTool;
@@ -91,6 +92,7 @@ public class GhidrAssistMCPBackend implements McpBackend {
         registerTool(new FunctionXrefsTool());
         registerTool(new SetFunctionPrototypeTool());
         registerTool(new SetLocalVariableTypeTool());
+        registerTool(new SetDataTypeTool());
         registerTool(new AutoCreateStructTool());
         registerTool(new RenameStructureFieldTool());
         
