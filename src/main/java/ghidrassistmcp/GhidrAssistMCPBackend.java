@@ -35,6 +35,7 @@ import ghidrassistmcp.tools.ProgramInfoTool;
 import ghidrassistmcp.tools.RenameDataTool;
 import ghidrassistmcp.tools.RenameFunctionByAddressTool;
 import ghidrassistmcp.tools.RenameFunctionTool;
+import ghidrassistmcp.tools.RenameStructureFieldTool;
 import ghidrassistmcp.tools.RenameVariableTool;
 import ghidrassistmcp.tools.SearchClassesTool;
 import ghidrassistmcp.tools.SearchFunctionsTool;
@@ -91,6 +92,7 @@ public class GhidrAssistMCPBackend implements McpBackend {
         registerTool(new SetFunctionPrototypeTool());
         registerTool(new SetLocalVariableTypeTool());
         registerTool(new AutoCreateStructTool());
+        registerTool(new RenameStructureFieldTool());
         
         Msg.info(this, "GhidrAssistMCP Backend initialized with " + tools.size() + " tools");
     }
