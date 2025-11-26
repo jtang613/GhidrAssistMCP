@@ -227,6 +227,8 @@ public class SetFunctionPrototypeTool implements McpTool {
      * Add prototype as a comment for reference
      */
     private void addPrototypeComment(Program program, Function function, String prototype) {
+        int transactionId = program.startTransaction("Add prototype comment");
+        boolean committed = false;
         try {
             String currentComment = function.getComment();
             String newComment = "Applied prototype: " + prototype;
@@ -234,8 +236,11 @@ public class SetFunctionPrototypeTool implements McpTool {
                 newComment = currentComment + "\n" + newComment;
             }
             function.setComment(newComment);
+            committed = true;
         } catch (Exception e) {
             Msg.warn(this, "Could not add prototype comment: " + e.getMessage());
+        } finally {
+            program.endTransaction(transactionId, committed);
         }
     }
     
