@@ -13,6 +13,7 @@ import java.util.concurrent.CopyOnWriteArrayList;
 import ghidra.program.model.listing.Program;
 import ghidra.util.Msg;
 import ghidrassistmcp.tools.AutoCreateStructTool;
+import ghidrassistmcp.tools.CreateStructTool;
 import ghidrassistmcp.tools.DecompileFunctionTool;
 import ghidrassistmcp.tools.DisassembleFunctionTool;
 import ghidrassistmcp.tools.FunctionXrefsTool;
@@ -31,13 +32,16 @@ import ghidrassistmcp.tools.ListMethodsTool;
 import ghidrassistmcp.tools.ListNamespacesTool;
 import ghidrassistmcp.tools.ListSegmentsTool;
 import ghidrassistmcp.tools.ListStringsTool;
+import ghidrassistmcp.tools.ModifyStructTool;
 import ghidrassistmcp.tools.ProgramInfoTool;
 import ghidrassistmcp.tools.RenameDataTool;
 import ghidrassistmcp.tools.RenameFunctionByAddressTool;
 import ghidrassistmcp.tools.RenameFunctionTool;
+import ghidrassistmcp.tools.RenameStructureFieldTool;
 import ghidrassistmcp.tools.RenameVariableTool;
 import ghidrassistmcp.tools.SearchClassesTool;
 import ghidrassistmcp.tools.SearchFunctionsTool;
+import ghidrassistmcp.tools.SetDataTypeTool;
 import ghidrassistmcp.tools.SetDecompilerCommentTool;
 import ghidrassistmcp.tools.SetDisassemblyCommentTool;
 import ghidrassistmcp.tools.SetFunctionPrototypeTool;
@@ -90,7 +94,11 @@ public class GhidrAssistMCPBackend implements McpBackend {
         registerTool(new FunctionXrefsTool());
         registerTool(new SetFunctionPrototypeTool());
         registerTool(new SetLocalVariableTypeTool());
+        registerTool(new SetDataTypeTool());
         registerTool(new AutoCreateStructTool());
+        registerTool(new CreateStructTool());
+        registerTool(new ModifyStructTool());
+        registerTool(new RenameStructureFieldTool());
         
         Msg.info(this, "GhidrAssistMCP Backend initialized with " + tools.size() + " tools");
     }
