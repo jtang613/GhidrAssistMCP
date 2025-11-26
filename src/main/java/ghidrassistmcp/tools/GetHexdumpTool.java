@@ -181,8 +181,8 @@ public class GetHexdumpTool implements McpTool {
     private String formatHexdumpLine(Address lineAddr, byte[] bytes, int validBytes) {
         StringBuilder line = new StringBuilder();
 
-        // Address (8 hex digits)
-        line.append(String.format("%08x  ", lineAddr.getOffset()));
+        // Address (16 hex digits to avoid truncating 64-bit addresses)
+        line.append(String.format("%016x  ", lineAddr.getOffset()));
 
         // Hex bytes (16 per line, with space after 8th byte)
         for (int i = 0; i < BYTES_PER_LINE; i++) {
