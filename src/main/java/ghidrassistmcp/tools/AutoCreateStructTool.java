@@ -186,10 +186,13 @@ public class AutoCreateStructTool implements McpTool {
                 }
                 
                 // Create and apply the structure
-                createAndApplyStructureImpl(program, function, highVar, decompiler, highFunction, successMessage, errorMessage);
-                
-                success.set(true);
-                committed = true;
+                boolean applied = createAndApplyStructureImpl(program, function, highVar, decompiler, highFunction,
+                    successMessage, errorMessage);
+
+                if (applied) {
+                    success.set(true);
+                    committed = true;
+                }
                 
             } finally {
                 decompiler.dispose();
@@ -207,8 +210,8 @@ public class AutoCreateStructTool implements McpTool {
     /**
      * Core structure creation logic from reference code
      */
-    private void createAndApplyStructureImpl(Program program, Function function, HighVariable highVar, 
-                                           DecompInterface decompiler, HighFunction highFunction, StringBuilder successMessage, StringBuilder errorMessage) throws Exception {
+    private boolean createAndApplyStructureImpl(Program program, Function function, HighVariable highVar,
+                                             DecompInterface decompiler, HighFunction highFunction, StringBuilder successMessage, StringBuilder errorMessage) throws Exception {
         
         // Try to use FillOutStructureHelper to process the structure
         // Note: This class may not be available in all Ghidra versions
@@ -224,12 +227,12 @@ public class AutoCreateStructTool implements McpTool {
             structDT = (Structure) processMethod.invoke(fillHelper, highVar, function, false, true, decompiler);
         } catch (Exception e) {
             errorMessage.append("FillOutStructureHelper not available or failed: ").append(e.getMessage());
-            return;
+            return false;
         }
         
         if (structDT == null) {
             errorMessage.append("Failed to create structure from variable usage");
-            return;
+            return false;
         }
 
         // Add structure to data type manager
@@ -253,6 +256,7 @@ public class AutoCreateStructTool implements McpTool {
         }
         
         Msg.info(this, "Successfully created and applied structure: " + structDT.getName());
+        return true;
     }
     
     /**
