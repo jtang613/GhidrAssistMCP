@@ -12,6 +12,8 @@ GhidrAssistMCP bridges the gap between AI-powered analysis tools and Ghidra's co
 - **Dual HTTP Transports**: Supports SSE and Streamable HTTP transports for maximum client compatibility
 - **39 Built-in Tools**: Comprehensive set of analysis tools covering functions, data, cross-references, structures, and more
 - **Multi-Program Support**: Work with multiple open programs simultaneously using `program_name` parameter
+- **Multi-Window Support**: Single MCP server shared across all CodeBrowser windows with intelligent focus tracking
+- **Active Context Awareness**: Automatic detection of which binary window is in focus, with context hints in all tool responses
 - **Configurable UI**: Easy-to-use interface for managing tools and monitoring activity
 - **Real-time Logging**: Track all MCP requests and responses with detailed logging
 - **Dynamic Tool Management**: Enable/disable tools individually with persistent settings
@@ -248,21 +250,90 @@ Then specify which program to target using `program_name`:
 }
 ```
 
+### Multi-Window Support & Active Context Awareness
+
+GhidrAssistMCP uses a singleton architecture that enables seamless operation across multiple CodeBrowser windows:
+
+#### How It Works
+
+1. **Single Shared Server**: One MCP server (port 8080) serves all CodeBrowser windows
+2. **Focus Tracking**: Automatically detects which CodeBrowser window is currently active
+3. **Context Hints**: All tool responses include context information to help AI understand which binary is in focus
+
+#### Automatic Context Detection
+
+When you open multiple binaries in separate CodeBrowser windows, GhidrAssistMCP tracks:
+- Which window was most recently focused
+- Which program is currently active in that window
+- All programs open across all windows
+
+#### Context Information in Responses
+
+Every tool response includes a context header:
+
+```
+[Context] Operating on: malware.exe | Active window: malware.exe
+
+<tool response content>
+```
+
+or when targeting a different program:
+
+```
+[Context] Operating on: lib.so | Active window: main.exe | Total open programs: 3
+
+<tool response content>
+```
+
+#### Benefits for AI Assistants
+
+- **Smart Defaults**: When no `program_name` is specified, tools automatically use the program from the active window
+- **Context Awareness**: AI knows which binary the user is currently viewing
+- **Prevents Confusion**: Clear indication when operating on a different binary than what's in the active window
+- **Multi-tasking**: Work with multiple binaries without constantly specifying which one to target
+
+#### Example Workflow
+
+1. Open `malware.exe` in CodeBrowser window 1
+2. Open `lib.dll` in CodeBrowser window 2
+3. Click on window 1 (focuses on `malware.exe`)
+4. Ask AI: "decompile the main function"
+   - AI receives context: `[Context] Operating on: malware.exe`
+   - Automatically targets the correct binary
+5. Switch to window 2 (`lib.dll`)
+6. Ask AI: "list functions"
+   - AI receives context: `[Context] Operating on: lib.dll`
+   - Automatically switches context
+
 ## Architecture
 
 ### Core Components
 
 ```
 GhidrAssistMCP/
-├── GhidrAssistMCPPlugin      # Main plugin entry point
+├── GhidrAssistMCPManager     # Singleton coordinator for multi-window support
+│   ├── Tracks all CodeBrowser windows
+│   ├── Manages focus tracking
+│   └── Owns shared server and backend
+├── GhidrAssistMCPPlugin      # Plugin instance (one per CodeBrowser window)
+│   └── Registers with singleton manager
 ├── GhidrAssistMCPServer      # HTTP MCP server (SSE + Streamable)
+│   └── Single shared instance on port 8080
 ├── GhidrAssistMCPBackend     # Tool management and execution
+│   └── Single shared instance
 ├── GhidrAssistMCPProvider    # UI component provider
-└── tools/                    # Individual MCP tools
+│   └── First registered instance provides UI
+└── tools/                    # Individual MCP tools (39 total)
     ├── Analysis Tools/
     ├── Modification Tools/
     └── Navigation Tools/
 ```
+
+**Singleton Architecture**: Multiple CodeBrowser windows share a single MCP server and backend through the `GhidrAssistMCPManager` singleton. This ensures:
+- All open programs are visible regardless of which window they're in
+- Single server on port 8080 serves all windows
+- Focus tracking determines active context
+- Server lifecycle tied to all windows (starts with first, stops when all close)
 
 ### MCP Protocol Implementation
 
