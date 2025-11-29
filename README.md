@@ -10,7 +10,7 @@ GhidrAssistMCP bridges the gap between AI-powered analysis tools and Ghidra's co
 
 - **MCP Server Integration**: Full Model Context Protocol server implementation using official SDK
 - **Dual HTTP Transports**: Supports SSE and Streamable HTTP transports for maximum client compatibility
-- **31 Built-in Tools**: Comprehensive set of analysis tools covering functions, data, cross-references, and more
+- **38 Built-in Tools**: Comprehensive set of analysis tools covering functions, data, cross-references, structures, and more
 - **Configurable UI**: Easy-to-use interface for managing tools and monitoring activity
 - **Real-time Logging**: Track all MCP requests and responses with detailed logging
 - **Dynamic Tool Management**: Enable/disable tools individually with persistent settings
@@ -92,7 +92,7 @@ Shameless self-promotion: [GhidrAssist](https://github.com/jtang613/GhidrAssist)
 ### Tool Management
 
 The Configuration tab allows you to:
-- **View all available tools** (31 total)
+- **View all available tools** (38 total)
 - **Enable/disable individual tools** using checkboxes
 - **Save configuration** to persist across sessions
 - **Monitor tool status** in real-time
@@ -103,6 +103,7 @@ The Configuration tab allows you to:
 - `get_program_info` - Get basic program information
 - `list_functions` - List all functions in the program
 - `list_data` - List data definitions
+- `list_data_types` - List all available data types
 - `list_strings` - List string references
 - `list_imports` - List imported functions
 - `list_exports` - List exported functions
@@ -124,6 +125,7 @@ The Configuration tab allows you to:
 
 #### Location & Navigation
 - `get_current_address` - Get current cursor address
+- `get_hexdump` - Get hexdump of memory at specific address
 - `xrefs_to` - Find references to an address
 - `xrefs_from` - Find references from an address
 
@@ -137,7 +139,12 @@ The Configuration tab allows you to:
 - `set_disassembly_comment` - Add disassembly comments
 - `set_decompiler_comment` - Add decompiler comments
 
-#### Advanced Analysis
+#### Structure & Data Type Management
+- `get_data_type` - Get detailed data type information and structure definitions
+- `create_struct` - Create new user-defined structures
+- `modify_struct` - Modify existing structures with C definitions
+- `rename_structure_field` - Rename fields within structures
+- `set_data_type` - Set data type at specific address
 - `auto_create_struct` - Automatically create structures from variable usage patterns
 
 ## Usage Examples
@@ -267,7 +274,7 @@ src/main/java/ghidrassistmcp/
     ├── ListFunctionsTool.java
     ├── DecompileFunctionTool.java
     ├── AutoCreateStructTool.java
-    └── ... (29 total tools)
+    └── ... (38 total tools)
 ```
 
 ### Adding New Tools

@@ -20,11 +20,13 @@ import ghidrassistmcp.tools.FunctionXrefsTool;
 import ghidrassistmcp.tools.GetClassInfoTool;
 import ghidrassistmcp.tools.GetCurrentAddressTool;
 import ghidrassistmcp.tools.GetCurrentFunctionTool;
+import ghidrassistmcp.tools.GetDataTypeTool;
 import ghidrassistmcp.tools.GetFunctionByAddressTool;
 import ghidrassistmcp.tools.GetFunctionInfoTool;
 import ghidrassistmcp.tools.GetHexdumpTool;
 import ghidrassistmcp.tools.ListClassesTool;
 import ghidrassistmcp.tools.ListDataTool;
+import ghidrassistmcp.tools.ListDataTypesTool;
 import ghidrassistmcp.tools.ListExportsTool;
 import ghidrassistmcp.tools.ListFunctionsTool;
 import ghidrassistmcp.tools.ListImportsTool;
@@ -57,7 +59,6 @@ public class GhidrAssistMCPBackend implements McpBackend {
     
     private final Map<String, McpTool> tools = new ConcurrentHashMap<>();
     private final Map<String, Boolean> toolEnabledStates = new ConcurrentHashMap<>();
-    private volatile Program currentProgram;
     private final List<McpEventListener> eventListeners = new CopyOnWriteArrayList<>();
     private volatile GhidrAssistMCPPlugin plugin;
     
@@ -83,9 +84,11 @@ public class GhidrAssistMCPBackend implements McpBackend {
         registerTool(new GetCurrentAddressTool());
         registerTool(new GetHexdumpTool());
         registerTool(new GetCurrentFunctionTool());
+        registerTool(new GetDataTypeTool());
         registerTool(new SetDisassemblyCommentTool());
         registerTool(new SetDecompilerCommentTool());
         registerTool(new ListDataTool());
+        registerTool(new ListDataTypesTool());
         registerTool(new ListNamespacesTool());
         registerTool(new ListClassesTool());
         registerTool(new SearchClassesTool());
@@ -148,7 +151,7 @@ public class GhidrAssistMCPBackend implements McpBackend {
                 .addTextContent("Tool not found: " + toolName)
                 .build();
         }
-        
+
         // Check if tool is enabled
         if (!toolEnabledStates.getOrDefault(toolName, true)) {
             Msg.warn(this, "Tool is disabled: " + toolName);
@@ -156,12 +159,16 @@ public class GhidrAssistMCPBackend implements McpBackend {
                 .addTextContent("Tool is disabled: " + toolName)
                 .build();
         }
-        
+
         try {
             // Notify listeners of the request
             notifyToolRequest(toolName, arguments);
-            
+
             Msg.info(this, "Executing tool: " + toolName);
+
+            // Get the current program dynamically from the plugin
+            Program currentProgram = getCurrentProgram();
+
             // Use the enhanced execute method if plugin is available
             McpSchema.CallToolResult result;
             if (plugin != null) {
@@ -169,36 +176,40 @@ public class GhidrAssistMCPBackend implements McpBackend {
             } else {
                 result = tool.execute(arguments, currentProgram);
             }
-            
+
             // Notify listeners of the response
             notifyToolResponse(toolName, result);
-            
+
             return result;
         } catch (Exception e) {
             Msg.error(this, "Error executing tool " + toolName, e);
             McpSchema.CallToolResult errorResult = McpSchema.CallToolResult.builder()
                 .addTextContent("Error executing tool " + toolName + ": " + e.getMessage())
                 .build();
-            
+
             // Notify listeners of the error response
             notifyToolResponse(toolName, errorResult);
-            
+
             return errorResult;
         }
     }
     
     @Override
     public void onProgramActivated(Program program) {
-        this.currentProgram = program;
+        // Program activation is now handled dynamically - no caching needed
         if (program != null) {
-            Msg.info(this, "Backend tracking program: " + program.getName());
+            Msg.info(this, "Program activated: " + program.getName());
+            // Notify listeners for logging purposes
+            notifySessionEvent("Program activated: " + program.getName());
         }
     }
-    
+
     @Override
     public void onProgramDeactivated(Program program) {
-        this.currentProgram = null;
-        Msg.info(this, "Backend no longer tracking a program");
+        // Program deactivation is now handled dynamically - no state clearing needed
+        if (program != null) {
+            Msg.info(this, "Program deactivated: " + program.getName());
+        }
     }
     
     @Override
@@ -214,10 +225,15 @@ public class GhidrAssistMCPBackend implements McpBackend {
     }
     
     /**
-     * Get the currently tracked program
+     * Get the currently active program from the plugin.
+     * This dynamically retrieves the program, ensuring we always have the correct one
+     * even when switching between files/programs.
      */
     public Program getCurrentProgram() {
-        return currentProgram;
+        if (plugin != null) {
+            return plugin.getCurrentProgram();
+        }
+        return null;
     }
     
     /**
