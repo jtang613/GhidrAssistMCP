@@ -103,6 +103,12 @@ public class GhidrAssistMCPPlugin extends ProgramPlugin {
 	@Override
 	protected void programActivated(Program program) {
 		super.programActivated(program);
+
+		// Notify manager that this tool is now active (focus tracking)
+		if (manager != null) {
+			manager.setActiveTool(tool);
+		}
+
 		GhidrAssistMCPBackend backend = getBackend();
 		if (backend != null) {
 			backend.onProgramActivated(program);

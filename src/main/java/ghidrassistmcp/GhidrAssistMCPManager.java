@@ -33,6 +33,9 @@ public class GhidrAssistMCPManager {
     // Track all registered plugin tools
     private final List<PluginTool> registeredTools = new CopyOnWriteArrayList<>();
 
+    // Track the most recently active tool (for context awareness)
+    private volatile PluginTool activeTool;
+
     // Server configuration
     private String currentHost = "localhost";
     private int currentPort = 8080;
@@ -163,11 +166,50 @@ public class GhidrAssistMCPManager {
     }
 
     /**
+     * Set the active tool (called when a CodeBrowser window gains focus).
+     * This helps determine which program context to use for incoming requests.
+     */
+    public synchronized void setActiveTool(PluginTool tool) {
+        if (registeredTools.contains(tool)) {
+            activeTool = tool;
+            Msg.info(this, "Active tool changed: " + tool.getName());
+
+            if (provider != null) {
+                ProgramManager pm = tool.getService(ProgramManager.class);
+                if (pm != null) {
+                    Program current = pm.getCurrentProgram();
+                    if (current != null) {
+                        provider.logSession("Active context: " + current.getName() + " (from " + tool.getName() + ")");
+                    }
+                }
+            }
+        }
+    }
+
+    /**
+     * Get the currently active tool (most recently focused CodeBrowser).
+     */
+    public PluginTool getActiveTool() {
+        return activeTool;
+    }
+
+    /**
      * Get the currently active program across all tools.
-     * Returns the program from the most recently focused tool.
+     * Prioritizes the program from the most recently focused tool.
      */
     public Program getCurrentProgram() {
-        // Try each tool's current program
+        // First, try the active tool if one is set
+        if (activeTool != null) {
+            ProgramManager pm = activeTool.getService(ProgramManager.class);
+            if (pm != null) {
+                Program current = pm.getCurrentProgram();
+                if (current != null) {
+                    return current;
+                }
+            }
+        }
+
+        // Fall back to any tool's current program
         for (PluginTool tool : registeredTools) {
             ProgramManager pm = tool.getService(ProgramManager.class);
             if (pm != null) {

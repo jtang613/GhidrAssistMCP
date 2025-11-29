@@ -221,6 +221,9 @@ public class GhidrAssistMCPBackend implements McpBackend {
             // Use the backend-aware execute method for multi-program support
             McpSchema.CallToolResult result = tool.execute(arguments, targetProgram, this);
 
+            // Add active context information to help LLM understand which binary is in focus
+            result = addActiveContextToResult(result, targetProgram);
+
             // Notify listeners of the response
             notifyToolResponse(toolName, result);
 
@@ -419,6 +422,71 @@ public class GhidrAssistMCPBackend implements McpBackend {
         }
     }
     
+    /**
+     * Add active context information to tool results to help LLM understand which binary is in focus.
+     * This prepends context metadata to the first text content in the result.
+     */
+    private McpSchema.CallToolResult addActiveContextToResult(McpSchema.CallToolResult result, Program targetProgram) {
+        if (result == null || result.content() == null || result.content().isEmpty()) {
+            return result;
+        }
+
+        // Build context information
+        StringBuilder contextInfo = new StringBuilder();
+
+        // Get the current active program from manager
+        Program activeProgram = getCurrentProgram();
+
+        // Add context header
+        contextInfo.append("[Context] ");
+
+        if (targetProgram != null) {
+            contextInfo.append("Operating on: ").append(targetProgram.getName());
+
+            // If active program is different, mention it
+            if (activeProgram != null && !activeProgram.equals(targetProgram)) {
+                contextInfo.append(" | Active window: ").append(activeProgram.getName());
+            }
+        } else if (activeProgram != null) {
+            contextInfo.append("Active window: ").append(activeProgram.getName());
+        } else {
+            contextInfo.append("No program currently active");
+        }
+
+        // Add available programs count if multiple are open
+        if (manager != null) {
+            List<Program> allPrograms = manager.getAllOpenPrograms();
+            if (allPrograms.size() > 1) {
+                contextInfo.append(" | Total open programs: ").append(allPrograms.size());
+            }
+        }
+
+        contextInfo.append("\n\n");
+
+        // Prepend context to the first text content
+        var firstContent = result.content().get(0);
+        if (firstContent instanceof McpSchema.TextContent) {
+            String originalText = ((McpSchema.TextContent) firstContent).text();
+            String enhancedText = contextInfo.toString() + originalText;
+
+            // Build new result with enhanced content
+            McpSchema.CallToolResult.Builder builder = McpSchema.CallToolResult.builder()
+                .addTextContent(enhancedText);
+
+            // Add remaining content items if any
+            for (int i = 1; i < result.content().size(); i++) {
+                var content = result.content().get(i);
+                if (content instanceof McpSchema.TextContent) {
+                    builder.addTextContent(((McpSchema.TextContent) content).text());
+                }
+            }
+
+            return builder.build();
+        }
+
+        return result;
+    }
+
     /**
      * Set the enabled state of a tool.
      */

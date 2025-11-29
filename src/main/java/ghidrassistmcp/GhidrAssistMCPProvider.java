@@ -208,10 +208,14 @@ public class GhidrAssistMCPProvider extends ComponentProvider implements McpEven
         tabbedPane.addFocusListener(new FocusListener() {
             @Override
             public void focusGained(FocusEvent e) {
+                // Notify manager that this tool's window gained focus
+                if (plugin != null && plugin.getManager() != null) {
+                    plugin.getManager().setActiveTool(tool);
+                }
                 // Refresh tools list when the window receives focus
                 refreshToolsList();
             }
-            
+
             @Override
             public void focusLost(FocusEvent e) {
                 // No action needed when focus is lost
