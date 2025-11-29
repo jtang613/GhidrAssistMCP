@@ -351,6 +351,19 @@ public class GhidrAssistMCPBackend implements McpBackend {
         this.manager = manager;
         Msg.info(this, "Manager reference set for multi-tool support");
     }
+
+    /**
+     * Get the currently active plugin instance for UI context access.
+     * This allows tools to access current address, current function, etc.
+     *
+     * @return The active plugin instance, or null if none is active
+     */
+    public GhidrAssistMCPPlugin getActivePlugin() {
+        if (manager != null) {
+            return manager.getActivePlugin();
+        }
+        return null;
+    }
     
     /**
      * Notify listeners of a tool request.

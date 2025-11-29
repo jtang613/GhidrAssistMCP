@@ -19,7 +19,7 @@ import ghidra.program.model.listing.Program;
 import ghidra.program.model.symbol.SourceType;
 import ghidra.util.Msg;
 import ghidra.util.task.ConsoleTaskMonitor;
-import ghidrassistmcp.GhidrAssistMCPPlugin;
+import ghidrassistmcp.GhidrAssistMCPBackend;
 import ghidrassistmcp.McpTool;
 import io.modelcontextprotocol.spec.McpSchema;
 
@@ -50,49 +50,42 @@ public class SetFunctionPrototypeTool implements McpTool {
     
     @Override
     public McpSchema.CallToolResult execute(Map<String, Object> arguments, Program currentProgram) {
-        // Fallback for when plugin reference is not available
+        // Fallback for when backend reference is not available
         if (currentProgram == null) {
             return McpSchema.CallToolResult.builder()
                 .addTextContent("No program currently loaded")
                 .build();
         }
-        
-        return McpSchema.CallToolResult.builder()
-            .addTextContent("Function prototype setting requires plugin context for proper transaction handling")
-            .build();
-    }
-    
-    @Override
-    public McpSchema.CallToolResult execute(Map<String, Object> arguments, Program currentProgram, GhidrAssistMCPPlugin plugin) {
-        if (currentProgram == null) {
-            return McpSchema.CallToolResult.builder()
-                .addTextContent("No program currently loaded")
-                .build();
-        }
-        
+
         String functionAddrStr = (String) arguments.get("function_address");
         String prototype = (String) arguments.get("prototype");
-        
+
         if (functionAddrStr == null || functionAddrStr.isEmpty()) {
             return McpSchema.CallToolResult.builder()
                 .addTextContent("function_address parameter is required")
                 .build();
         }
-        
+
         if (prototype == null || prototype.isEmpty()) {
             return McpSchema.CallToolResult.builder()
                 .addTextContent("prototype parameter is required")
                 .build();
         }
-        
+
         // Use proper prototype setting with transaction handling
         PrototypeResult result = setFunctionPrototype(currentProgram, functionAddrStr, prototype);
-        
+
         return McpSchema.CallToolResult.builder()
-            .addTextContent(result.success ? 
+            .addTextContent(result.success ?
                 "Successfully set function prototype: " + prototype :
                 "Failed to set function prototype: " + result.errorMessage)
             .build();
+    }
+
+    @Override
+    public McpSchema.CallToolResult execute(Map<String, Object> arguments, Program currentProgram, GhidrAssistMCPBackend backend) {
+        // This tool doesn't need UI context, so just delegate to the base implementation
+        return execute(arguments, currentProgram);
     }
     
     /**

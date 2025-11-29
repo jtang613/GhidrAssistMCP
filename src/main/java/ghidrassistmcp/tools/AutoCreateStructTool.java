@@ -33,7 +33,7 @@ import ghidra.util.Msg;
 import ghidra.util.exception.DuplicateNameException;
 import ghidra.util.exception.InvalidInputException;
 import ghidra.util.task.TaskMonitor;
-import ghidrassistmcp.GhidrAssistMCPPlugin;
+import ghidrassistmcp.GhidrAssistMCPBackend;
 import ghidrassistmcp.McpTool;
 import io.modelcontextprotocol.spec.McpSchema;
 
@@ -65,49 +65,42 @@ public class AutoCreateStructTool implements McpTool {
     
     @Override
     public McpSchema.CallToolResult execute(Map<String, Object> arguments, Program currentProgram) {
-        // Fallback for when plugin reference is not available
+        // Fallback for when backend reference is not available
         if (currentProgram == null) {
             return McpSchema.CallToolResult.builder()
                 .addTextContent("No program currently loaded")
                 .build();
         }
-        
-        return McpSchema.CallToolResult.builder()
-            .addTextContent("Auto create structure functionality requires plugin context for decompiler access")
-            .build();
-    }
-    
-    @Override
-    public McpSchema.CallToolResult execute(Map<String, Object> arguments, Program currentProgram, GhidrAssistMCPPlugin plugin) {
-        if (currentProgram == null) {
-            return McpSchema.CallToolResult.builder()
-                .addTextContent("No program currently loaded")
-                .build();
-        }
-        
+
         String functionIdentifier = (String) arguments.get("function_identifier");
         String variableName = (String) arguments.get("variable_name");
-        
+
         if (functionIdentifier == null || functionIdentifier.isEmpty()) {
             return McpSchema.CallToolResult.builder()
                 .addTextContent("function_identifier parameter is required (function name or address)")
                 .build();
         }
-        
+
         if (variableName == null || variableName.isEmpty()) {
             return McpSchema.CallToolResult.builder()
                 .addTextContent("variable_name parameter is required")
                 .build();
         }
-        
+
         // Use proper structure creation with transaction handling
         StructureResult result = createAndApplyStructure(currentProgram, functionIdentifier, variableName);
-        
+
         return McpSchema.CallToolResult.builder()
-            .addTextContent(result.success ? 
+            .addTextContent(result.success ?
                 "Successfully created and applied structure: " + result.message :
                 "Failed to create structure: " + result.errorMessage)
             .build();
+    }
+
+    @Override
+    public McpSchema.CallToolResult execute(Map<String, Object> arguments, Program currentProgram, GhidrAssistMCPBackend backend) {
+        // This tool doesn't need UI context, so just delegate to the base implementation
+        return execute(arguments, currentProgram);
     }
     
     /**

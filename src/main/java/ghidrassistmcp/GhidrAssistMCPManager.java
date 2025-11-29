@@ -36,6 +36,9 @@ public class GhidrAssistMCPManager {
     // Track the most recently active tool (for context awareness)
     private volatile PluginTool activeTool;
 
+    // Track the most recently active plugin instance (for UI context)
+    private volatile GhidrAssistMCPPlugin activePlugin;
+
     // Server configuration
     private String currentHost = "localhost";
     private int currentPort = 8080;
@@ -191,6 +194,21 @@ public class GhidrAssistMCPManager {
      */
     public PluginTool getActiveTool() {
         return activeTool;
+    }
+
+    /**
+     * Set the active plugin instance (called when a plugin gains focus).
+     * This provides access to UI context like current address and function.
+     */
+    public synchronized void setActivePlugin(GhidrAssistMCPPlugin plugin) {
+        this.activePlugin = plugin;
+    }
+
+    /**
+     * Get the currently active plugin instance (for UI context access).
+     */
+    public GhidrAssistMCPPlugin getActivePlugin() {
+        return activePlugin;
     }
 
     /**

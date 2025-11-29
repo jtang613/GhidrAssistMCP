@@ -122,6 +122,12 @@ public class GhidrAssistMCPPlugin extends ProgramPlugin {
 	protected void locationChanged(ProgramLocation loc) {
 		super.locationChanged(loc);
 		this.currentLocation1 = loc;
+
+		// Set this as the active plugin for UI context access
+		if (manager != null) {
+			manager.setActivePlugin(this);
+		}
+
 		if (provider != null && loc != null) {
 			provider.logMessage("Location changed to: " + loc.getAddress());
 		}
