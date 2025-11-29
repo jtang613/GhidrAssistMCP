@@ -28,6 +28,7 @@ import ghidrassistmcp.tools.ListClassesTool;
 import ghidrassistmcp.tools.ListDataTool;
 import ghidrassistmcp.tools.ListDataTypesTool;
 import ghidrassistmcp.tools.ListExportsTool;
+import ghidrassistmcp.tools.ListProgramsTool;
 import ghidrassistmcp.tools.ListFunctionsTool;
 import ghidrassistmcp.tools.ListImportsTool;
 import ghidrassistmcp.tools.ListMethodsTool;
@@ -54,13 +55,14 @@ import io.modelcontextprotocol.spec.McpSchema;
 
 /**
  * Implementation of the MCP backend that manages tools and program state.
+ * Works with the singleton GhidrAssistMCPManager to support multiple CodeBrowser windows.
  */
 public class GhidrAssistMCPBackend implements McpBackend {
-    
+
     private final Map<String, McpTool> tools = new ConcurrentHashMap<>();
     private final Map<String, Boolean> toolEnabledStates = new ConcurrentHashMap<>();
     private final List<McpEventListener> eventListeners = new CopyOnWriteArrayList<>();
-    private volatile GhidrAssistMCPPlugin plugin;
+    private volatile GhidrAssistMCPManager manager;
     
     public GhidrAssistMCPBackend() {
         // Register built-in tools
@@ -90,6 +92,7 @@ public class GhidrAssistMCPBackend implements McpBackend {
         registerTool(new ListDataTool());
         registerTool(new ListDataTypesTool());
         registerTool(new ListNamespacesTool());
+        registerTool(new ListProgramsTool());
         registerTool(new ListClassesTool());
         registerTool(new SearchClassesTool());
         registerTool(new GetClassInfoTool());
@@ -129,17 +132,63 @@ public class GhidrAssistMCPBackend implements McpBackend {
         for (McpTool tool : tools.values()) {
             // Only include enabled tools in the available tools list
             if (toolEnabledStates.getOrDefault(tool.getName(), true)) {
+                // Augment the schema with program_name parameter for multi-program support
+                McpSchema.JsonSchema augmentedSchema = augmentSchemaWithProgramName(tool.getInputSchema());
+
                 toolList.add(McpSchema.Tool.builder()
                     .name(tool.getName())
                     .title(tool.getName())
                     .description(tool.getDescription())
-                    .inputSchema(tool.getInputSchema())
+                    .inputSchema(augmentedSchema)
                     .build());
             }
         }
         // Sort tools alphabetically by name for consistent ordering
         toolList.sort((a, b) -> a.name().compareToIgnoreCase(b.name()));
         return toolList;
+    }
+
+    /**
+     * Augment a tool's input schema with the universal 'program_name' parameter.
+     * This allows all tools to optionally target a specific open program.
+     */
+    private McpSchema.JsonSchema augmentSchemaWithProgramName(McpSchema.JsonSchema originalSchema) {
+        // Create the program_name property schema
+        Map<String, Object> programNameSchema = new HashMap<>();
+        programNameSchema.put("type", "string");
+        programNameSchema.put("description", "Optional: Name of the program/binary to operate on. " +
+            "Use list_programs to see available programs. " +
+            "If not specified, uses the currently active program.");
+
+        if (originalSchema == null) {
+            // Create a schema with just program_name
+            Map<String, Object> props = new HashMap<>();
+            props.put("program_name", programNameSchema);
+            return new McpSchema.JsonSchema("object", props, List.of(), null, null, null);
+        }
+
+        // Get original properties or empty map
+        Map<String, Object> originalProps = originalSchema.properties();
+        Map<String, Object> newProps;
+
+        if (originalProps != null) {
+            newProps = new HashMap<>(originalProps);
+        } else {
+            newProps = new HashMap<>();
+        }
+
+        // Add program_name parameter
+        newProps.put("program_name", programNameSchema);
+
+        // Return new schema with augmented properties
+        return new McpSchema.JsonSchema(
+            originalSchema.type(),
+            newProps,
+            originalSchema.required(),
+            originalSchema.additionalProperties(),
+            originalSchema.defs(),
+            originalSchema.definitions()
+        );
     }
     
     @Override
@@ -166,16 +215,11 @@ public class GhidrAssistMCPBackend implements McpBackend {
 
             Msg.info(this, "Executing tool: " + toolName);
 
-            // Get the current program dynamically from the plugin
-            Program currentProgram = getCurrentProgram();
+            // Resolve the target program - check if program_name is specified
+            Program targetProgram = resolveTargetProgram(arguments);
 
-            // Use the enhanced execute method if plugin is available
-            McpSchema.CallToolResult result;
-            if (plugin != null) {
-                result = tool.execute(arguments, currentProgram, plugin);
-            } else {
-                result = tool.execute(arguments, currentProgram);
-            }
+            // Use the backend-aware execute method for multi-program support
+            McpSchema.CallToolResult result = tool.execute(arguments, targetProgram, this);
 
             // Notify listeners of the response
             notifyToolResponse(toolName, result);
@@ -225,15 +269,56 @@ public class GhidrAssistMCPBackend implements McpBackend {
     }
     
     /**
-     * Get the currently active program from the plugin.
-     * This dynamically retrieves the program, ensuring we always have the correct one
-     * even when switching between files/programs.
+     * Resolve the target program based on arguments.
+     * If 'program_name' is specified, look up that program across ALL open tools.
+     * Otherwise, return the currently active program.
+     *
+     * @param arguments The tool arguments that may contain 'program_name'
+     * @return The resolved program to operate on
+     */
+    private Program resolveTargetProgram(Map<String, Object> arguments) {
+        if (manager == null) {
+            return null;
+        }
+
+        // Check if a specific program was requested
+        Object programNameObj = arguments.get("program_name");
+        if (programNameObj instanceof String) {
+            String programName = (String) programNameObj;
+            if (!programName.trim().isEmpty()) {
+                Program found = manager.getProgramByName(programName);
+                if (found != null) {
+                    Msg.info(this, "Resolved program by name: " + found.getName());
+                    return found;
+                } else {
+                    Msg.warn(this, "Program not found: " + programName + ", using current program");
+                }
+            }
+        }
+
+        // Default to current program
+        return manager.getCurrentProgram();
+    }
+
+    /**
+     * Get the currently active program from the manager.
+     * This queries ALL registered tools for the currently active program.
      */
     public Program getCurrentProgram() {
-        if (plugin != null) {
-            return plugin.getCurrentProgram();
+        if (manager != null) {
+            return manager.getCurrentProgram();
         }
         return null;
+    }
+
+    /**
+     * Get all open programs from ALL registered tools.
+     */
+    public List<Program> getAllOpenPrograms() {
+        if (manager != null) {
+            return manager.getAllOpenPrograms();
+        }
+        return new ArrayList<>();
     }
     
     /**
@@ -257,11 +342,11 @@ public class GhidrAssistMCPBackend implements McpBackend {
     }
     
     /**
-     * Set the plugin reference for tools that need UI access.
+     * Set the manager reference for multi-tool program discovery.
      */
-    public void setPlugin(GhidrAssistMCPPlugin plugin) {
-        this.plugin = plugin;
-        Msg.info(this, "Plugin reference set for UI-aware tool execution");
+    public void setManager(GhidrAssistMCPManager manager) {
+        this.manager = manager;
+        Msg.info(this, "Manager reference set for multi-tool support");
     }
     
     /**

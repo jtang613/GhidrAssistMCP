@@ -3,11 +3,14 @@
  */
 package ghidrassistmcp;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 
 import ghidra.MiscellaneousPluginPackage;
 import ghidra.app.plugin.PluginCategoryNames;
 import ghidra.app.plugin.ProgramPlugin;
+import ghidra.app.services.ProgramManager;
 import ghidra.framework.plugintool.*;
 import ghidra.framework.plugintool.util.PluginStatus;
 import ghidra.program.model.address.Address;
@@ -31,14 +34,9 @@ import ghidra.util.Msg;
 public class GhidrAssistMCPPlugin extends ProgramPlugin {
 
 	private GhidrAssistMCPProvider provider;
-	private GhidrAssistMCPServer mcpServer;
-	private GhidrAssistMCPBackend backend;
-	
-	// Current configuration
-	private String currentHost = "localhost";
-	private int currentPort = 8080;
-	private boolean serverEnabled = true;
-	
+	private GhidrAssistMCPManager manager;
+	private boolean isServerOwner = false;
+
 	// Current UI location tracking
 	private volatile ProgramLocation currentLocation1;
 
@@ -58,23 +56,10 @@ public class GhidrAssistMCPPlugin extends ProgramPlugin {
 	public void init() {
 		super.init();
 
-		// Initialize MCP Backend first
-		backend = new GhidrAssistMCPBackend();
-		
-		// Set plugin reference for UI-aware tools
-		backend.setPlugin(this);
-		
-		// Register provider as event listener regardless of UI registration success
-		// This ensures logging works even if UI fails to register
-		if (provider != null) {
-			backend.addEventListener(provider);
-			provider.onBackendReady();
-			Msg.info(this, "Provider registered as event listener");
-		} else {
-			Msg.warn(this, "Provider is null - event listener not registered");
-		}
+		// Get the singleton manager
+		manager = GhidrAssistMCPManager.getInstance();
 
-		// Register the UI provider with the tool (separate from event listening)
+		// Register the UI provider with the tool first
 		if (provider != null) {
 			try {
 				tool.addComponentProvider(provider, true);
@@ -84,121 +69,46 @@ public class GhidrAssistMCPPlugin extends ProgramPlugin {
 					Msg.info(this, "UI provider already registered, continuing");
 				} else {
 					Msg.error(this, "Failed to register UI provider (non-fatal): " + e.getMessage());
-					// Don't set provider to null - keep it for event listening
 				}
 			} catch (Exception e) {
 				Msg.error(this, "Failed to register UI provider (non-fatal): " + e.getMessage());
-				// Don't set provider to null - keep it for event listening
 			}
 		}
-		
-		// Start server with initial configuration
-		startServer();
-		
+
+		// Register this tool with the singleton manager
+		// The first tool to register becomes the server owner and gets its provider used
+		isServerOwner = manager.registerTool(tool, provider);
+
+		if (isServerOwner) {
+			Msg.info(this, "This plugin instance is the MCP server owner");
+		} else {
+			Msg.info(this, "This plugin instance registered with existing MCP server");
+		}
+
 		if (provider != null) {
-			provider.logSession("Plugin initialized");
+			provider.logSession("Plugin initialized" + (isServerOwner ? " (server owner)" : ""));
 		}
 	}
 	
 	/**
 	 * Apply new configuration from the UI.
+	 * Delegates to the singleton manager which handles server restart if needed.
 	 */
 	public void applyConfiguration(String host, int port, boolean enabled, Map<String, Boolean> toolStates) {
-		if (provider != null) {
-			provider.logMessage("Applying configuration: " + host + ":" + port + " enabled=" + enabled);
-		}
-		
-		boolean needsRestart = false;
-		
-		// Check if server settings changed
-		if (!host.equals(currentHost) || port != currentPort) {
-			currentHost = host;
-			currentPort = port;
-			needsRestart = true;
-		}
-		
-		// Check if server enabled state changed
-		if (enabled != serverEnabled) {
-			serverEnabled = enabled;
-			needsRestart = true;
-		}
-		
-		// Update tool enabled states
-		updateToolStates(toolStates);
-		
-		// Restart server if needed
-		if (needsRestart) {
-			stopServer();
-			if (serverEnabled) {
-				startServer();
-			}
-		}
-		
-		if (provider != null) {
-			provider.refreshToolsList();
-		}
-	}
-	
-	private void updateToolStates(Map<String, Boolean> toolStates) {
-		if (backend != null) {
-			// Update backend with new tool states
-			backend.updateToolEnabledStates(toolStates);
-			
-			if (provider != null) {
-				provider.logMessage("Updated tool states for " + toolStates.size() + " tools");
-			}
-		}
-	}
-	
-	private void startServer() {
-		if (!serverEnabled) {
-			if (provider != null) {
-				provider.logSession("Server disabled - not starting");
-			}
-			return;
-		}
-		
-		try {
-			mcpServer = new GhidrAssistMCPServer(currentPort, backend, provider);
-			mcpServer.start();
-			if (provider != null) {
-				provider.logSession("Server started on " + currentHost + ":" + currentPort);
-			}
-			Msg.info(this, "MCP Server started on port " + currentPort);
-		} catch (Exception e) {
-			if (provider != null) {
-				provider.logSession("Failed to start server: " + e.getMessage());
-			}
-			Msg.error(this, "Failed to start MCP Server", e);
-		}
-	}
-	
-	private void stopServer() {
-		if (mcpServer != null) {
-			try {
-				mcpServer.stop();
-				if (provider != null) {
-					provider.logSession("Server stopped");
-				}
-				Msg.info(this, "MCP Server stopped");
-			} catch (Exception e) {
-				if (provider != null) {
-					provider.logSession("Error stopping server: " + e.getMessage());
-				}
-				Msg.error(this, "Failed to stop MCP Server", e);
-			}
-			mcpServer = null;
+		if (manager != null) {
+			manager.applyConfiguration(host, port, enabled, toolStates);
 		}
 	}
 	
 	@Override
 	protected void programActivated(Program program) {
 		super.programActivated(program);
+		GhidrAssistMCPBackend backend = getBackend();
 		if (backend != null) {
 			backend.onProgramActivated(program);
-			if (provider != null) {
-				provider.logSession("Program activated: " + program.getName());
-			}
+		}
+		if (provider != null && program != null) {
+			provider.logSession("Program activated: " + program.getName());
 		}
 	}
 	
@@ -214,11 +124,12 @@ public class GhidrAssistMCPPlugin extends ProgramPlugin {
 	@Override
 	protected void programDeactivated(Program program) {
 		super.programDeactivated(program);
+		GhidrAssistMCPBackend backend = getBackend();
 		if (backend != null) {
 			backend.onProgramDeactivated(program);
-			if (provider != null) {
-				provider.logSession("Program deactivated: " + (program != null ? program.getName() : "null"));
-			}
+		}
+		if (provider != null) {
+			provider.logSession("Program deactivated: " + (program != null ? program.getName() : "null"));
 		}
 	}
 	
@@ -226,12 +137,7 @@ public class GhidrAssistMCPPlugin extends ProgramPlugin {
 	protected void dispose() {
 		if (provider != null) {
 			provider.logSession("Plugin disposing");
-			
-			// Remove provider as event listener
-			if (backend != null) {
-				backend.removeEventListener(provider);
-			}
-			
+
 			try {
 				tool.removeComponentProvider(provider);
 			} catch (Exception e) {
@@ -239,39 +145,120 @@ public class GhidrAssistMCPPlugin extends ProgramPlugin {
 			}
 			provider = null;
 		}
-		stopServer();
+
+		// Unregister this tool from the singleton manager
+		// The manager will stop the server when all tools are unregistered
+		if (manager != null) {
+			manager.unregisterTool(tool);
+		}
+
 		super.dispose();
 	}
 	
 	/**
 	 * Get the MCP backend for tool management.
+	 * Returns the shared backend from the singleton manager.
 	 */
 	public GhidrAssistMCPBackend getBackend() {
-		return backend;
+		return manager != null ? manager.getBackend() : null;
 	}
-	
+
+	/**
+	 * Get the singleton manager.
+	 */
+	public GhidrAssistMCPManager getManager() {
+		return manager;
+	}
+
 	/**
 	 * Get the current server configuration.
+	 * Returns configuration from the singleton manager.
 	 */
 	public String getCurrentHost() {
-		return currentHost;
+		return manager != null ? manager.getCurrentHost() : "localhost";
 	}
-	
+
 	public int getCurrentPort() {
-		return currentPort;
+		return manager != null ? manager.getCurrentPort() : 8080;
 	}
-	
+
 	public boolean isServerEnabled() {
-		return serverEnabled;
+		return manager != null ? manager.isServerEnabled() : false;
 	}
 	
 	/**
-	 * Get the current program.
+	 * Get the current program using ProgramManager service for accurate tracking.
+	 * This method properly handles multi-program scenarios.
 	 */
+	@Override
 	public Program getCurrentProgram() {
+		ProgramManager pm = tool.getService(ProgramManager.class);
+		if (pm != null) {
+			Program current = pm.getCurrentProgram();
+			if (current != null) {
+				return current;
+			}
+		}
+		// Fall back to parent implementation
 		return super.getCurrentProgram();
 	}
-	
+
+	/**
+	 * Get all open programs in the current tool.
+	 * This allows tools to list and select from multiple open programs.
+	 */
+	public List<Program> getAllOpenPrograms() {
+		List<Program> programs = new ArrayList<>();
+		ProgramManager pm = tool.getService(ProgramManager.class);
+		if (pm != null) {
+			Program[] openPrograms = pm.getAllOpenPrograms();
+			if (openPrograms != null) {
+				for (Program p : openPrograms) {
+					programs.add(p);
+				}
+			}
+		}
+		return programs;
+	}
+
+	/**
+	 * Find an open program by name.
+	 * Supports partial matching if exact match not found.
+	 *
+	 * @param programName The name of the program to find
+	 * @return The matching program, or null if not found
+	 */
+	public Program getProgramByName(String programName) {
+		if (programName == null || programName.trim().isEmpty()) {
+			return getCurrentProgram();
+		}
+
+		List<Program> programs = getAllOpenPrograms();
+
+		// First try exact match
+		for (Program p : programs) {
+			if (p.getName().equals(programName)) {
+				return p;
+			}
+		}
+
+		// Try case-insensitive match
+		for (Program p : programs) {
+			if (p.getName().equalsIgnoreCase(programName)) {
+				return p;
+			}
+		}
+
+		// Try partial match (contains)
+		for (Program p : programs) {
+			if (p.getName().toLowerCase().contains(programName.toLowerCase())) {
+				return p;
+			}
+		}
+
+		return null;
+	}
+
 	/**
 	 * Get the current UI address from the location tracker.
 	 */
@@ -281,14 +268,14 @@ public class GhidrAssistMCPPlugin extends ProgramPlugin {
 		}
 		return null;
 	}
-	
+
 	/**
 	 * Get the current function containing the UI cursor.
 	 */
 	public Function getCurrentFunction() {
 		Program program = getCurrentProgram();
 		Address address = getCurrentAddress();
-		
+
 		if (program != null && address != null) {
 			FunctionManager functionManager = program.getFunctionManager();
 			return functionManager.getFunctionContaining(address);

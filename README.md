@@ -10,7 +10,8 @@ GhidrAssistMCP bridges the gap between AI-powered analysis tools and Ghidra's co
 
 - **MCP Server Integration**: Full Model Context Protocol server implementation using official SDK
 - **Dual HTTP Transports**: Supports SSE and Streamable HTTP transports for maximum client compatibility
-- **38 Built-in Tools**: Comprehensive set of analysis tools covering functions, data, cross-references, structures, and more
+- **39 Built-in Tools**: Comprehensive set of analysis tools covering functions, data, cross-references, structures, and more
+- **Multi-Program Support**: Work with multiple open programs simultaneously using `program_name` parameter
 - **Configurable UI**: Easy-to-use interface for managing tools and monitoring activity
 - **Real-time Logging**: Track all MCP requests and responses with detailed logging
 - **Dynamic Tool Management**: Enable/disable tools individually with persistent settings
@@ -92,7 +93,7 @@ Shameless self-promotion: [GhidrAssist](https://github.com/jtang613/GhidrAssist)
 ### Tool Management
 
 The Configuration tab allows you to:
-- **View all available tools** (38 total)
+- **View all available tools** (39 total)
 - **Enable/disable individual tools** using checkboxes
 - **Save configuration** to persist across sessions
 - **Monitor tool status** in real-time
@@ -101,6 +102,7 @@ The Configuration tab allows you to:
 
 #### Program Analysis
 - `get_program_info` - Get basic program information
+- `list_programs` - List all open programs (for multi-program support)
 - `list_functions` - List all functions in the program
 - `list_data` - List data definitions
 - `list_data_types` - List all available data types
@@ -218,6 +220,34 @@ The Configuration tab allows you to:
 }
 ```
 
+### Multi-Program Support
+
+When working with multiple open programs, first list them:
+
+```json
+{
+  "method": "tools/call",
+  "params": {
+    "name": "list_programs"
+  }
+}
+```
+
+Then specify which program to target using `program_name`:
+
+```json
+{
+  "method": "tools/call",
+  "params": {
+    "name": "list_functions",
+    "arguments": {
+      "program_name": "target_binary.exe",
+      "limit": 10
+    }
+  }
+}
+```
+
 ## Architecture
 
 ### Core Components
@@ -274,7 +304,7 @@ src/main/java/ghidrassistmcp/
     ├── ListFunctionsTool.java
     ├── DecompileFunctionTool.java
     ├── AutoCreateStructTool.java
-    └── ... (38 total tools)
+    └── ... (39 total tools)
 ```
 
 ### Adding New Tools
