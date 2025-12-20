@@ -373,7 +373,7 @@ public class GhidrAssistMCPManager {
         }
 
         try {
-            server = new GhidrAssistMCPServer(currentPort, backend, provider);
+            server = new GhidrAssistMCPServer(currentHost, currentPort, backend, provider);
             server.start();
             if (provider != null) {
                 provider.logSession("Server started on " + currentHost + ":" + currentPort);
