@@ -8,6 +8,7 @@ import java.util.Map;
 import java.util.function.BiFunction;
 
 import org.eclipse.jetty.server.Server;
+import org.eclipse.jetty.server.ServerConnector;
 import org.eclipse.jetty.servlet.ServletContextHandler;
 import org.eclipse.jetty.servlet.ServletHolder;
 
@@ -30,13 +31,15 @@ public class GhidrAssistMCPServer {
     private final McpBackend backend;
     private final GhidrAssistMCPProvider provider;
     private Server jettyServer;
+    private final String host;
     private final int port;
     
-    public GhidrAssistMCPServer(int port, McpBackend backend) {
-        this(port, backend, null);
+    public GhidrAssistMCPServer(String host, int port, McpBackend backend) {
+        this(host, port, backend, null);
     }
     
-    public GhidrAssistMCPServer(int port, McpBackend backend, GhidrAssistMCPProvider provider) {
+    public GhidrAssistMCPServer(String host, int port, McpBackend backend, GhidrAssistMCPProvider provider) {
+        this.host = host;
         this.port = port;
         this.backend = backend;
         this.provider = provider;
@@ -48,8 +51,13 @@ public class GhidrAssistMCPServer {
         try {
             // Create Jetty server
             Msg.info(this, "Creating Jetty server on port " + port);
-            jettyServer = new Server(port);
+            jettyServer = new Server();
             
+            ServerConnector connector = new ServerConnector(jettyServer);
+            connector.setHost(host);
+            connector.setPort(port);
+            jettyServer.addConnector(connector);
+
             // Create servlet context
             Msg.info(this, "Setting up servlet context");
             ServletContextHandler context = new ServletContextHandler(ServletContextHandler.SESSIONS);
@@ -123,10 +131,10 @@ public class GhidrAssistMCPServer {
                 Msg.info(this, "Message endpoint configured as: " + messageEndpoint);
                 Msg.info(this, "SSE endpoint will be: /sse (default)");
                 Msg.info(this, "Expected client URLs:");
-                Msg.info(this, "  SSE: http://localhost:" + port + "/sse");
-                Msg.info(this, "  Messages: http://localhost:" + port + "/" + messageEndpoint);
+                Msg.info(this, "  SSE: http://" + host + ":" + port + "/sse");
+                Msg.info(this, "  Messages: http://" + host + ":" + port + "/" + messageEndpoint);
                 Msg.info(this, "Streamable HTTP transport provider class: " + streamableTransportProvider.getClass().getName());
-                Msg.info(this, "Streamable MCP endpoint: http://localhost:" + port + mcpEndpoint);
+                Msg.info(this, "Streamable MCP endpoint: http://" + host + ":" + port + mcpEndpoint);
                 
             } catch (Exception e) {
                 Msg.error(this, "Failed to register MCP servlet", e);
@@ -139,9 +147,9 @@ public class GhidrAssistMCPServer {
             // Verify server is listening
             if (jettyServer.isStarted()) {
                 Msg.info(this, "GhidrAssistMCP Server successfully started on port " + port);
-                Msg.info(this, "MCP SSE endpoint: http://localhost:" + port + "/sse");
-                Msg.info(this, "MCP message endpoint: http://localhost:" + port + "/" + messageEndpoint);
-                Msg.info(this, "MCP Streamable endpoint: http://localhost:" + port + mcpEndpoint);
+                Msg.info(this, "MCP SSE endpoint: http://" + host + ":" + port + "/sse");
+                Msg.info(this, "MCP message endpoint: http://" + host + ":" + port + "/" + messageEndpoint);
+                Msg.info(this, "MCP Streamable endpoint: http://" + host + ":" + port + mcpEndpoint);
                 Msg.info(this, "Server state: " + jettyServer.getState());
                 
                 // Log all registered servlets
