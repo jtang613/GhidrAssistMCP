@@ -67,7 +67,7 @@ public class GhidrAssistMCPServer {
             // Create MCP transport provider using simple constructor
             Msg.info(this, "Creating MCP transport provider");
             McpJsonMapper mapper = McpJsonMapper.getDefault();
-            String messageEndpoint = "message";
+            String messageEndpoint = "/message";
             String mcpEndpoint = "/mcp";
 
             HttpServletSseServerTransportProvider sseTransportProvider =
@@ -118,7 +118,8 @@ public class GhidrAssistMCPServer {
             try {
                 ServletHolder mcpSseServletHolder = new ServletHolder("mcp-sse-transport", sseTransportProvider);
                 mcpSseServletHolder.setAsyncSupported(true);
-                context.addServlet(mcpSseServletHolder, "/*");
+                context.addServlet(mcpSseServletHolder, "/sse");
+                context.addServlet(mcpSseServletHolder, messageEndpoint);
 
                 ServletHolder mcpStreamableServletHolder = new ServletHolder("mcp-streamable-transport", streamableTransportProvider);
                 mcpStreamableServletHolder.setAsyncSupported(true);
@@ -132,7 +133,7 @@ public class GhidrAssistMCPServer {
                 Msg.info(this, "SSE endpoint will be: /sse (default)");
                 Msg.info(this, "Expected client URLs:");
                 Msg.info(this, "  SSE: http://" + host + ":" + port + "/sse");
-                Msg.info(this, "  Messages: http://" + host + ":" + port + "/" + messageEndpoint);
+                Msg.info(this, "  Messages: http://" + host + ":" + port + messageEndpoint);
                 Msg.info(this, "Streamable HTTP transport provider class: " + streamableTransportProvider.getClass().getName());
                 Msg.info(this, "Streamable MCP endpoint: http://" + host + ":" + port + mcpEndpoint);
                 
@@ -148,7 +149,7 @@ public class GhidrAssistMCPServer {
             if (jettyServer.isStarted()) {
                 Msg.info(this, "GhidrAssistMCP Server successfully started on port " + port);
                 Msg.info(this, "MCP SSE endpoint: http://" + host + ":" + port + "/sse");
-                Msg.info(this, "MCP message endpoint: http://" + host + ":" + port + "/" + messageEndpoint);
+                Msg.info(this, "MCP message endpoint: http://" + host + ":" + port + messageEndpoint);
                 Msg.info(this, "MCP Streamable endpoint: http://" + host + ":" + port + mcpEndpoint);
                 Msg.info(this, "Server state: " + jettyServer.getState());
                 
