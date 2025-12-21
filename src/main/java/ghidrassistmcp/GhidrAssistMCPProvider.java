@@ -385,6 +385,7 @@ public class GhidrAssistMCPProvider extends ComponentProvider implements McpEven
         // Load settings now that backend is ready
         loadSettings();
         refreshToolsList();
+        saveSettings();
         logMessage("Backend ready - settings loaded and tools list refreshed");
     }
     
