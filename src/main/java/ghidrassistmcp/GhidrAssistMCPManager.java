@@ -92,6 +92,10 @@ public class GhidrAssistMCPManager {
         // First registration starts the server
         if (registeredTools.size() == 1) {
             this.provider = pluginProvider;
+
+            // Load saved configuration from Ghidra options before starting server
+            loadSettings(tool);
+
             if (provider != null) {
                 backend.addEventListener(provider);
                 provider.onBackendReady();
@@ -354,6 +358,24 @@ public class GhidrAssistMCPManager {
 
     public boolean isServerEnabled() {
         return serverEnabled;
+    }
+
+    /**
+     * Load settings from Ghidra's Options.
+     * Called when the first tool registers to ensure saved configuration is used.
+     */
+    private void loadSettings(PluginTool tool) {
+        ghidra.framework.options.Options options = tool.getOptions("GhidrAssistMCP");
+
+        currentHost = options.getString("Server Host", "localhost");
+        currentPort = options.getInt("Server Port", 8080);
+        serverEnabled = options.getBoolean("Server Enabled", true);
+
+        Msg.info(this, "Loaded settings from Ghidra options: " + currentHost + ":" + currentPort + " enabled=" + serverEnabled);
+
+        if (provider != null) {
+            provider.logMessage("Loaded configuration: " + currentHost + ":" + currentPort + " enabled=" + serverEnabled);
+        }
     }
 
     /**
