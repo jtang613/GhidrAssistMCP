@@ -22,6 +22,7 @@ import docking.action.DockingAction;
 import docking.action.ToolBarData;
 import ghidra.framework.options.Options;
 import ghidra.framework.plugintool.PluginTool;
+import ghidra.framework.preferences.Preferences;
 import ghidra.util.HelpLocation;
 import resources.Icons;
 
@@ -259,18 +260,27 @@ public class GhidrAssistMCPProvider extends ComponentProvider implements McpEven
     }
     
     private void loadSettings() {
-        Options options = tool.getOptions(SETTINGS_CATEGORY);
-        
-        // Load server settings
-        String host = options.getString(HOST_SETTING, DEFAULT_HOST);
-        int port = options.getInt(PORT_SETTING, DEFAULT_PORT);
-        boolean enabled = options.getBoolean(ENABLED_SETTING, DEFAULT_ENABLED);
-        
+        // Load server settings from Ghidra's global preferences
+        String host = Preferences.getProperty(SETTINGS_CATEGORY + "." + HOST_SETTING, DEFAULT_HOST);
+        String portStr = Preferences.getProperty(SETTINGS_CATEGORY + "." + PORT_SETTING, String.valueOf(DEFAULT_PORT));
+        String enabledStr = Preferences.getProperty(SETTINGS_CATEGORY + "." + ENABLED_SETTING, String.valueOf(DEFAULT_ENABLED));
+
+        int port = DEFAULT_PORT;
+        boolean enabled = DEFAULT_ENABLED;
+        try {
+            port = Integer.parseInt(portStr);
+            enabled = Boolean.parseBoolean(enabledStr);
+        } catch (NumberFormatException e) {
+            logMessage("Warning: Failed to parse preferences, using defaults");
+        }
+
         hostField.setText(host);
         portSpinner.setValue(port);
         enabledCheckBox.setSelected(enabled);
-        
-        // Load tool enabled states
+
+        // Load tool enabled states from tool options
+        Options options = tool.getOptions(SETTINGS_CATEGORY);
+
         toolEnabledStates.clear();
         if (plugin != null && plugin.getBackend() != null) {
             try {
@@ -291,19 +301,19 @@ public class GhidrAssistMCPProvider extends ComponentProvider implements McpEven
         } else {
             logMessage("Backend not available - skipping tool state loading");
         }
-        
-        // Note: Options change listening would require additional implementation
     }
     
     private void saveSettings() {
+        // Save server settings to Ghidra's global preferences
+        Preferences.setProperty(SETTINGS_CATEGORY + "." + HOST_SETTING, hostField.getText());
+        Preferences.setProperty(SETTINGS_CATEGORY + "." + PORT_SETTING, String.valueOf(portSpinner.getValue()));
+        Preferences.setProperty(SETTINGS_CATEGORY + "." + ENABLED_SETTING, String.valueOf(enabledCheckBox.isSelected()));
+
+        // Force preferences to be saved to disk
+        Preferences.store();
+
+        // Save tool enabled states to tool options
         Options options = tool.getOptions(SETTINGS_CATEGORY);
-        
-        // Save server settings
-        options.setString(HOST_SETTING, hostField.getText());
-        options.setInt(PORT_SETTING, (Integer) portSpinner.getValue());
-        options.setBoolean(ENABLED_SETTING, enabledCheckBox.isSelected());
-        
-        // Save tool enabled states from table
         int savedCount = 0;
         for (int i = 0; i < toolsTableModel.getRowCount(); i++) {
             String toolName = (String) toolsTableModel.getValueAt(i, 1);
@@ -313,10 +323,10 @@ public class GhidrAssistMCPProvider extends ComponentProvider implements McpEven
             savedCount++;
         }
         
-        logMessage("Saved tool states to settings: " + savedCount + " tools configured");
-        
+        logMessage("Saved configuration to Ghidra options: server + " + savedCount + " tools");
+
         // Apply changes to the plugin
-        plugin.applyConfiguration(hostField.getText(), (Integer) portSpinner.getValue(), 
+        plugin.applyConfiguration(hostField.getText(), (Integer) portSpinner.getValue(),
                                 enabledCheckBox.isSelected(), toolEnabledStates);
     }
     

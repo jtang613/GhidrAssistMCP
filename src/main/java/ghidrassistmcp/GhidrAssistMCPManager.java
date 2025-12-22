@@ -9,6 +9,7 @@ import java.util.concurrent.CopyOnWriteArrayList;
 
 import ghidra.app.services.ProgramManager;
 import ghidra.framework.plugintool.PluginTool;
+import ghidra.framework.preferences.Preferences;
 import ghidra.program.model.listing.Program;
 import ghidra.util.Msg;
 
@@ -361,17 +362,25 @@ public class GhidrAssistMCPManager {
     }
 
     /**
-     * Load settings from Ghidra's Options.
+     * Load settings from Ghidra's global Preferences.
      * Called when the first tool registers to ensure saved configuration is used.
      */
     private void loadSettings(PluginTool tool) {
-        ghidra.framework.options.Options options = tool.getOptions("GhidrAssistMCP");
+        // Load from Ghidra's global Preferences
+        currentHost = Preferences.getProperty("GhidrAssistMCP.Server Host", "localhost");
+        String portStr = Preferences.getProperty("GhidrAssistMCP.Server Port", "8080");
+        String enabledStr = Preferences.getProperty("GhidrAssistMCP.Server Enabled", "true");
 
-        currentHost = options.getString("Server Host", "localhost");
-        currentPort = options.getInt("Server Port", 8080);
-        serverEnabled = options.getBoolean("Server Enabled", true);
+        try {
+            currentPort = Integer.parseInt(portStr);
+            serverEnabled = Boolean.parseBoolean(enabledStr);
+        } catch (NumberFormatException e) {
+            Msg.warn(this, "Failed to parse preferences, using defaults: " + e.getMessage());
+            currentPort = 8080;
+            serverEnabled = true;
+        }
 
-        Msg.info(this, "Loaded settings from Ghidra options: " + currentHost + ":" + currentPort + " enabled=" + serverEnabled);
+        Msg.info(this, "Loaded settings from Ghidra preferences: " + currentHost + ":" + currentPort + " enabled=" + serverEnabled);
 
         if (provider != null) {
             provider.logMessage("Loaded configuration: " + currentHost + ":" + currentPort + " enabled=" + serverEnabled);
