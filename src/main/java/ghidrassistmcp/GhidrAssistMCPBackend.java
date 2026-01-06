@@ -49,6 +49,7 @@ import ghidrassistmcp.tools.SetDecompilerCommentTool;
 import ghidrassistmcp.tools.SetDisassemblyCommentTool;
 import ghidrassistmcp.tools.SetFunctionPrototypeTool;
 import ghidrassistmcp.tools.SetLocalVariableTypeTool;
+import ghidrassistmcp.tools.StructFieldXrefsTool;
 import ghidrassistmcp.tools.XrefsFromTool;
 import ghidrassistmcp.tools.XrefsToTool;
 import io.modelcontextprotocol.spec.McpSchema;
@@ -98,6 +99,7 @@ public class GhidrAssistMCPBackend implements McpBackend {
         registerTool(new GetClassInfoTool());
         registerTool(new RenameDataTool());
         registerTool(new FunctionXrefsTool());
+        registerTool(new StructFieldXrefsTool());
         registerTool(new SetFunctionPrototypeTool());
         registerTool(new SetLocalVariableTypeTool());
         registerTool(new SetDataTypeTool());
