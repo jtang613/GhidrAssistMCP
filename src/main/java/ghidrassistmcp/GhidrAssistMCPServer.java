@@ -12,7 +12,9 @@ import org.eclipse.jetty.server.ServerConnector;
 import org.eclipse.jetty.servlet.ServletContextHandler;
 import org.eclipse.jetty.servlet.ServletHolder;
 
-import io.modelcontextprotocol.json.McpJsonMapper;
+import com.fasterxml.jackson.databind.DeserializationFeature;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import io.modelcontextprotocol.json.jackson.JacksonMcpJsonMapper;
 import io.modelcontextprotocol.server.McpServer;
 import io.modelcontextprotocol.server.McpSyncServerExchange;
 import io.modelcontextprotocol.server.transport.HttpServletSseServerTransportProvider;
@@ -64,9 +66,11 @@ public class GhidrAssistMCPServer {
             context.setContextPath("/");
             jettyServer.setHandler(context);
             
-            // Create MCP transport provider using simple constructor
+            // Create MCP transport provider using custom ObjectMapper that ignores unknown properties
             Msg.info(this, "Creating MCP transport provider");
-            McpJsonMapper mapper = McpJsonMapper.getDefault();
+            ObjectMapper objectMapper = new ObjectMapper();
+            objectMapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
+            JacksonMcpJsonMapper mapper = new JacksonMcpJsonMapper(objectMapper);
             String messageEndpoint = "/message";
             String mcpEndpoint = "/mcp";
 
