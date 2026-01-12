@@ -161,24 +161,55 @@ public class GetDataTypeTool implements McpTool {
         }
 
         result.append("Fields:\n");
+        
+        // Track consecutive undefined bytes for consolidation
+        Integer undefinedStartOffset = null;
+        int undefinedByteCount = 0;
+        
         for (DataTypeComponent comp : components) {
-            result.append(String.format("  +0x%04x [%3d] %-20s %s",
-                comp.getOffset(),
-                comp.getLength(),
-                comp.getDataType().getName(),
-                comp.getFieldName() != null ? comp.getFieldName() : "(unnamed)"));
+            String dataTypeName = comp.getDataType().getName();
+            boolean isUndefined = dataTypeName.equalsIgnoreCase("undefined");
+            
+            if (isUndefined) {
+                // Accumulate undefined bytes
+                if (undefinedStartOffset == null) {
+                    undefinedStartOffset = comp.getOffset();
+                }
+                undefinedByteCount += comp.getLength();
+            } else {
+                // Flush any accumulated undefined bytes before processing this component
+                if (undefinedStartOffset != null) {
+                    result.append(String.format("  -- %d undefined bytes at 0x%04x --\n",
+                        undefinedByteCount, undefinedStartOffset));
+                    undefinedStartOffset = null;
+                    undefinedByteCount = 0;
+                }
+                
+                // Output the non-undefined component
+                result.append(String.format("  +0x%04x [%3d] %-20s %s",
+                    comp.getOffset(),
+                    comp.getLength(),
+                    dataTypeName,
+                    comp.getFieldName() != null ? comp.getFieldName() : "(unnamed)"));
 
-            if (comp instanceof BitFieldDataType) {
-                BitFieldDataType bf = (BitFieldDataType) comp;
-                result.append(" : ").append(bf.getBitSize());
+                if (comp instanceof BitFieldDataType) {
+                    BitFieldDataType bf = (BitFieldDataType) comp;
+                    result.append(" : ").append(bf.getBitSize());
+                }
+
+                String comment = comp.getComment();
+                if (comment != null && !comment.isEmpty()) {
+                    result.append("  // ").append(comment);
+                }
+
+                result.append("\n");
             }
-
-            String comment = comp.getComment();
-            if (comment != null && !comment.isEmpty()) {
-                result.append("  // ").append(comment);
-            }
-
-            result.append("\n");
+        }
+        
+        // Flush any remaining undefined bytes at the end
+        if (undefinedStartOffset != null) {
+            result.append(String.format("  -- %d undefined bytes at 0x%04x --\n",
+                undefinedByteCount, undefinedStartOffset));
         }
     }
 
