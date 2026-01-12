@@ -166,4 +166,9 @@ public class ListDataTypesTool implements McpTool {
             .addTextContent(result.toString())
             .build();
     }
+
+    @Override
+    public boolean isReadOnly() {
+        return true;
+    }
 }

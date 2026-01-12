@@ -120,4 +120,9 @@ public class SearchFunctionsTool implements McpTool {
             .addTextContent(result.toString())
             .build();
     }
+
+    @Override
+    public boolean isReadOnly() {
+        return true;
+    }
 }

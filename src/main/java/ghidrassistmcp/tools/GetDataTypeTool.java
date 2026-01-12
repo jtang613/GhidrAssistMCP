@@ -277,4 +277,9 @@ public class GetDataTypeTool implements McpTool {
         result.append("Type: Function Definition\n\n");
         result.append("Signature: ").append(funcDef.getPrototypeString()).append("\n");
     }
+
+    @Override
+    public boolean isReadOnly() {
+        return true;
+    }
 }

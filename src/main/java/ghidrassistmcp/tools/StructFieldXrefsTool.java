@@ -571,4 +571,9 @@ public class StructFieldXrefsTool implements McpTool {
 
         return null;
     }
+
+    @Override
+    public boolean isReadOnly() {
+        return true;
+    }
 }

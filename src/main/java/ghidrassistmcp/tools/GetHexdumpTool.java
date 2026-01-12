@@ -218,4 +218,9 @@ public class GetHexdumpTool implements McpTool {
 
         return line.toString();
     }
+
+    @Override
+    public boolean isReadOnly() {
+        return true;
+    }
 }

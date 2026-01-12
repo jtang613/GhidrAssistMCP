@@ -43,4 +43,8 @@ public interface McpTool {
         // Default implementation delegates to the original method for backward compatibility
         return execute(arguments, currentProgram);
     }
+
+    default boolean isReadOnly() {
+        return false;
+    }
 }

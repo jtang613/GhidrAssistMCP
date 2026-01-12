@@ -57,4 +57,9 @@ public class ProgramInfoTool implements McpTool {
         
         return info.toString();
     }
+
+    @Override
+    public boolean isReadOnly() {
+        return true;
+    }
 }

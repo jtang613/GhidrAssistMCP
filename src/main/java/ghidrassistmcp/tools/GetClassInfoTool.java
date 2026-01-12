@@ -1001,7 +1001,12 @@ public class GetClassInfoTool implements McpTool {
         } else {
             result.append("Total members found: ").append(totalMembers);
         }
-        
+
         return result.toString();
+    }
+
+    @Override
+    public boolean isReadOnly() {
+        return true;
     }
 }
