@@ -24,7 +24,7 @@ public class ListStringsTool implements McpTool {
     
     @Override
     public String getDescription() {
-        return "List string data found in the program";
+        return "List string data found in the program, with optional filtering";
     }
     
     @Override
@@ -33,7 +33,8 @@ public class ListStringsTool implements McpTool {
             Map.of(
                 "offset", new McpSchema.JsonSchema("integer", null, null, null, null, null),
                 "limit", new McpSchema.JsonSchema("integer", null, null, null, null, null),
-                "min_length", new McpSchema.JsonSchema("integer", null, null, null, null, null)
+                "min_length", new McpSchema.JsonSchema("integer", null, null, null, null, null),
+                "filter", new McpSchema.JsonSchema("string", null, null, null, null, null)
             ),
             List.of(), null, null, null);
     }
@@ -50,6 +51,7 @@ public class ListStringsTool implements McpTool {
         int offset = 0;
         int limit = 100; // Default limit
         int minLength = 4; // Default minimum string length
+        String filter = null;
         
         if (arguments.get("offset") instanceof Number) {
             offset = ((Number) arguments.get("offset")).intValue();
@@ -60,9 +62,19 @@ public class ListStringsTool implements McpTool {
         if (arguments.get("min_length") instanceof Number) {
             minLength = ((Number) arguments.get("min_length")).intValue();
         }
+        if (arguments.get("filter") instanceof String) {
+            filter = ((String) arguments.get("filter")).trim();
+            if (filter.isEmpty()) {
+                filter = null;
+            }
+        }
         
         StringBuilder result = new StringBuilder();
-        result.append("Strings in program (min length: ").append(minLength).append("):\n\n");
+        result.append("Strings in program (min length: ").append(minLength);
+        if (filter != null) {
+            result.append(", filter: \"").append(filter).append("\"");
+        }
+        result.append("):\n\n");
         
         DataIterator dataIter = currentProgram.getListing().getDefinedData(true);
         
@@ -78,7 +90,12 @@ public class ListStringsTool implements McpTool {
                 String stringText = extractStringText(stringValue);
                 
                 // Apply minimum length filter
-                if (stringValue != null && stringValue.length() >= minLength) {
+                if (stringText != null && stringText.length() >= minLength) {
+                    // Apply optional contains filter (applies before offset/limit)
+                    if (filter != null && !stringText.contains(filter)) {
+                        continue;
+                    }
+
                     totalCount++;
                     
                     // Apply offset
