@@ -75,6 +75,7 @@ public class ListStringsTool implements McpTool {
             // Check if this is string data
             if (data.hasStringValue()) {
                 String stringValue = data.getDefaultValueRepresentation();
+                String stringText = extractStringText(stringValue);
                 
                 // Apply minimum length filter
                 if (stringValue != null && stringValue.length() >= minLength) {
@@ -97,7 +98,7 @@ public class ListStringsTool implements McpTool {
                     }
                     
                     result.append("@ ").append(data.getAddress())
-                          .append(" (").append(stringValue.length()).append(" chars): ")
+                          .append(" (").append(stringText.length()).append(" chars): ")
                           .append(displayString)
                           .append("\n");
                     
@@ -118,5 +119,23 @@ public class ListStringsTool implements McpTool {
         return McpSchema.CallToolResult.builder()
             .addTextContent(result.toString())
             .build();
+    }
+
+    /**
+     * Extract the "actual" string text from Ghidra's default value representation.
+     * This is usually quoted (e.g. "\"Hello\""), sometimes with a prefix (e.g. "L\"Hello\"").
+     */
+    private static String extractStringText(String defaultValueRepresentation) {
+        if (defaultValueRepresentation == null) {
+            return null;
+        }
+
+        int firstQuote = defaultValueRepresentation.indexOf('"');
+        int lastQuote = defaultValueRepresentation.lastIndexOf('"');
+        if (firstQuote >= 0 && lastQuote > firstQuote) {
+            return defaultValueRepresentation.substring(firstQuote + 1, lastQuote);
+        }
+
+        return defaultValueRepresentation;
     }
 }
