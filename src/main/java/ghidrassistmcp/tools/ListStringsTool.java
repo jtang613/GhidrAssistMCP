@@ -155,4 +155,9 @@ public class ListStringsTool implements McpTool {
 
         return defaultValueRepresentation;
     }
+
+    @Override
+    public boolean isReadOnly() {
+        return true;
+    }
 }

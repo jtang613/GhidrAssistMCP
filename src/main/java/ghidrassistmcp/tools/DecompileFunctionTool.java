@@ -104,29 +104,34 @@ public class DecompileFunctionTool implements McpTool {
         DecompInterface decompiler = new DecompInterface();
         try {
             decompiler.openProgram(function.getProgram());
-            
+
             DecompileResults results = decompiler.decompileFunction(function, 30, TaskMonitor.DUMMY);
-            
+
             if (results.isTimedOut()) {
                 return "Decompilation timed out for function: " + function.getName();
             }
-            
+
             if (results.isValid() == false) {
                 return "Decompilation error for function " + function.getName() + ": " + results.getErrorMessage();
             }
-            
+
             String decompiledCode = results.getDecompiledFunction().getC();
-            
+
             if (decompiledCode == null || decompiledCode.trim().isEmpty()) {
                 return "No decompiled code available for function: " + function.getName();
             }
-            
+
             return "Decompiled function " + function.getName() + ":\n\n" + decompiledCode;
-            
+
         } catch (Exception e) {
             return "Error decompiling function " + function.getName() + ": " + e.getMessage();
         } finally {
             decompiler.dispose();
         }
+    }
+
+    @Override
+    public boolean isReadOnly() {
+        return true;
     }
 }

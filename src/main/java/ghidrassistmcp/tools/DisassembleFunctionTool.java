@@ -127,12 +127,17 @@ public class DisassembleFunctionTool implements McpTool {
     private Function findFunctionByName(Program program, String functionName) {
         var functionManager = program.getFunctionManager();
         var functions = functionManager.getFunctions(true);
-        
+
         for (Function function : functions) {
             if (function.getName().equals(functionName)) {
                 return function;
             }
         }
         return null;
+    }
+
+    @Override
+    public boolean isReadOnly() {
+        return true;
     }
 }

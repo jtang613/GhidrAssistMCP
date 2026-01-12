@@ -137,11 +137,21 @@ public class GhidrAssistMCPBackend implements McpBackend {
                 // Augment the schema with program_name parameter for multi-program support
                 McpSchema.JsonSchema augmentedSchema = augmentSchemaWithProgramName(tool.getInputSchema());
 
+                McpSchema.ToolAnnotations annotations = new McpSchema.ToolAnnotations(
+                    null,
+                    tool.isReadOnly(),
+                    null,
+                    null,
+                    null,
+                    null
+                );
+
                 toolList.add(McpSchema.Tool.builder()
                     .name(tool.getName())
                     .title(tool.getName())
                     .description(tool.getDescription())
                     .inputSchema(augmentedSchema)
+                    .annotations(annotations)
                     .build());
             }
         }
