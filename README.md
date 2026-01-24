@@ -10,14 +10,17 @@ GhidrAssistMCP bridges the gap between AI-powered analysis tools and Ghidra's co
 
 - **MCP Server Integration**: Full Model Context Protocol server implementation using official SDK
 - **Dual HTTP Transports**: Supports SSE and Streamable HTTP transports for maximum client compatibility
-- **39 Built-in Tools**: Comprehensive set of analysis tools covering functions, data, cross-references, structures, and more
+- **33 Built-in Tools**: Comprehensive set of analysis tools with action-based consolidation for cleaner APIs
+- **5 MCP Resources**: Static data resources for program info, functions, strings, imports, and exports
+- **5 MCP Prompts**: Pre-built analysis prompts for common reverse engineering tasks
+- **Result Caching**: Intelligent caching system to improve performance for repeated queries
+- **Async Task Support**: Long-running operations execute asynchronously with task management
 - **Multi-Program Support**: Work with multiple open programs simultaneously using `program_name` parameter
 - **Multi-Window Support**: Single MCP server shared across all CodeBrowser windows with intelligent focus tracking
 - **Active Context Awareness**: Automatic detection of which binary window is in focus, with context hints in all tool responses
 - **Configurable UI**: Easy-to-use interface for managing tools and monitoring activity
 - **Real-time Logging**: Track all MCP requests and responses with detailed logging
 - **Dynamic Tool Management**: Enable/disable tools individually with persistent settings
-- **Current Context Awareness**: Tools that understand Ghidra's current cursor position and active function
 
 ## Clients
 
@@ -33,7 +36,7 @@ Shameless self-promotion: [GhidrAssist](https://github.com/jtang613/GhidrAssist)
 
 ### Prerequisites
 
-- **Ghidra 11.4+** (tested with Ghidra 11.4 Public)
+- **Ghidra 11.4+** (tested with Ghidra 12.0 Public)
 - **An MCP Client (Like GhidrAssist)**
 
 ### Binary Release (Recommended)
@@ -95,61 +98,143 @@ Shameless self-promotion: [GhidrAssist](https://github.com/jtang613/GhidrAssist)
 ### Tool Management
 
 The Configuration tab allows you to:
-- **View all available tools** (39 total)
+- **View all available tools** (33 total)
 - **Enable/disable individual tools** using checkboxes
 - **Save configuration** to persist across sessions
 - **Monitor tool status** in real-time
 
-### Available Tools
+## Available Tools
 
-#### Program Analysis
-- `get_program_info` - Get basic program information
-- `list_programs` - List all open programs (for multi-program support)
-- `list_functions` - List all functions in the program
-- `list_data` - List data definitions
-- `list_data_types` - List all available data types
-- `list_strings` - List string references
-- `list_imports` - List imported functions
-- `list_exports` - List exported functions
-- `list_segments` - List memory segments
-- `list_namespaces` - List namespaces
-- `list_classes` - List class definitions
-- `list_methods` - List method definitions
+GhidrAssistMCP provides 33 tools organized into categories. Several tools use an action-based API pattern where a single tool provides multiple related operations.
 
-#### Function Analysis
-- `get_function_info` - Get detailed function information
-- `get_class_info` - Get detailed class information
-- `get_function_by_address` - Find function at specific address
-- `get_current_function` - Get function at cursor position
-- `decompile_function` - Decompile function to C-like code
-- `disassemble_function` - Get assembly disassembly
-- `search_functions` - Search functions by name pattern
-- `search_classes` - Search classes by name pattern
-- `function_xrefs` - Get function cross-references
+### Program & Data Listing
 
-#### Location & Navigation
-- `get_current_address` - Get current cursor address
-- `get_hexdump` - Get hexdump of memory at specific address
-- `xrefs_to` - Find references to an address
-- `xrefs_from` - Find references from an address
+| Tool | Description |
+|------|-------------|
+| `get_program_info` | Get basic program information (name, architecture, compiler, etc.) |
+| `list_programs` | List all open programs across all CodeBrowser windows |
+| `list_functions` | List functions with optional pattern filtering and pagination |
+| `list_data` | List data definitions in the program |
+| `list_data_types` | List all available data types |
+| `list_strings` | List string references with optional filtering |
+| `list_imports` | List imported functions/symbols |
+| `list_exports` | List exported functions/symbols |
+| `list_segments` | List memory segments |
+| `list_namespaces` | List namespaces in the program |
+| `list_methods` | List method definitions |
+| `list_relocations` | List relocation entries |
 
-#### Modification Tools
-- `rename_function` - Rename functions
-- `rename_function_by_address` - Rename function at specific address
-- `rename_variable` - Rename variables
-- `rename_data` - Rename data definitions
-- `set_function_prototype` - Set function signatures
-- `set_local_variable_type` - Set variable data types
-- `set_disassembly_comment` - Add disassembly comments
-- `set_decompiler_comment` - Add decompiler comments
+### Function & Code Analysis
 
-#### Structure & Data Type Management
-- `get_data_type` - Get detailed data type information and structure definitions
-- `create_struct` - Create new user-defined structures
-- `modify_struct` - Modify existing structures with C definitions
-- `rename_structure_field` - Rename fields within structures
-- `set_data_type` - Set data type at specific address
-- `auto_create_struct` - Automatically create structures from variable usage patterns
+| Tool | Description |
+|------|-------------|
+| `get_function_info` | Get detailed function information (signature, variables, etc.) |
+| `get_current_function` | Get function at current cursor position |
+| `get_current_address` | Get current cursor address |
+| `get_hexdump` | Get hexdump of memory at specific address |
+| `get_call_graph` | Get call graph for a function (callers and callees) |
+| `get_basic_blocks` | Get basic block information for a function |
+
+### Consolidated Action-Based Tools
+
+These tools provide multiple operations through an `action` parameter:
+
+#### `get_code` - Code Retrieval Tool
+| Action | Description |
+|--------|-------------|
+| `decompiler` | Decompile function to C-like pseudocode |
+| `disassembly` | Get assembly disassembly |
+| `pcode` | Get P-code intermediate representation |
+
+#### `class` - Class Operations Tool
+| Action | Description |
+|--------|-------------|
+| `list` | List classes with optional pattern filtering and pagination |
+| `get_info` | Get detailed class information (methods, fields, vtables, virtual functions) |
+
+#### `xrefs` - Cross-Reference Tool
+| Parameter | Description |
+|-----------|-------------|
+| `address` | Find all references to/from a specific address |
+| `function_name` | Find all cross-references for a function |
+
+#### `struct` - Structure Operations Tool
+| Action | Description |
+|--------|-------------|
+| `create` | Create a new structure from C definition or empty |
+| `modify` | Modify an existing structure with new C definition |
+| `auto_create` | Automatically create structure from variable usage patterns |
+| `rename_field` | Rename a field within a structure |
+| `field_xrefs` | Find cross-references to a specific struct field |
+
+#### `rename_symbol` - Symbol Renaming Tool
+| Action | Description |
+|--------|-------------|
+| `function` | Rename a function |
+| `data` | Rename a data label |
+| `variable` | Rename a local variable or parameter |
+
+#### `set_comment` - Comment Tool
+| Action | Description |
+|--------|-------------|
+| `decompiler` | Set/modify decompiler (pseudocode) comment |
+| `disassembly` | Set/modify disassembly (assembly) comment |
+
+#### `bookmarks` - Bookmark Management Tool
+| Action | Description |
+|--------|-------------|
+| `list` | List all bookmarks |
+| `add` | Add a new bookmark |
+| `delete` | Delete a bookmark |
+
+### Type & Prototype Tools
+
+| Tool | Description |
+|------|-------------|
+| `get_data_type` | Get detailed data type information and structure definitions |
+| `set_data_type` | Set data type at a specific address |
+| `set_function_prototype` | Set function signature/prototype |
+| `set_local_variable_type` | Set data type for local variables |
+
+### Search Tools
+
+| Tool | Description |
+|------|-------------|
+| `search_bytes` | Search for byte patterns in memory |
+
+### Async Task Management
+
+Long-running operations (decompilation, structure analysis, field xrefs) execute asynchronously:
+
+| Tool | Description |
+|------|-------------|
+| `get_task_status` | Check status and retrieve results of async tasks |
+| `cancel_task` | Cancel a running async task |
+| `list_tasks` | List all pending/running/completed tasks |
+
+## MCP Resources
+
+GhidrAssistMCP exposes 5 static resources that can be read by MCP clients:
+
+| Resource URI | Description |
+|--------------|-------------|
+| `ghidra://program/info` | Basic program information |
+| `ghidra://program/functions` | List of all functions |
+| `ghidra://program/strings` | String references |
+| `ghidra://program/imports` | Imported symbols |
+| `ghidra://program/exports` | Exported symbols |
+
+## MCP Prompts
+
+Pre-built prompts for common analysis tasks:
+
+| Prompt | Description |
+|--------|-------------|
+| `analyze_function` | Comprehensive function analysis prompt |
+| `identify_vulnerability` | Security vulnerability identification |
+| `document_function` | Generate function documentation |
+| `trace_data_flow` | Data flow analysis prompt |
+| `trace_network_data` | Trace network send/recv call stacks for protocol analysis and network vulnerability identification |
 
 ## Usage Examples
 
@@ -164,42 +249,77 @@ The Configuration tab allows you to:
 }
 ```
 
-### Function Analysis
+### List Functions with Pattern Filtering
 
 ```json
 {
   "method": "tools/call",
   "params": {
-    "name": "get_function_info",
+    "name": "list_functions",
     "arguments": {
+      "pattern": "init",
+      "case_sensitive": false,
+      "limit": 50
+    }
+  }
+}
+```
+
+### Decompile Function (Action-Based)
+
+```json
+{
+  "method": "tools/call",
+  "params": {
+    "name": "get_code",
+    "arguments": {
+      "action": "decompiler",
       "function_name": "main"
     }
   }
 }
 ```
 
-### Decompilation
+### Get Class Information (Action-Based)
 
 ```json
 {
   "method": "tools/call",
   "params": {
-    "name": "decompile_function",
+    "name": "class",
     "arguments": {
-      "function_name": "encrypt_data"
+      "action": "get_info",
+      "class_name": "MyClass"
     }
   }
 }
 ```
 
-### Structure Creation
+### Search Classes (Action-Based)
 
 ```json
 {
   "method": "tools/call",
   "params": {
-    "name": "auto_create_struct",
+    "name": "class",
     "arguments": {
+      "action": "list",
+      "pattern": "Socket",
+      "case_sensitive": false
+    }
+  }
+}
+```
+
+### Auto-Create Structure (Action-Based)
+
+```json
+{
+  "method": "tools/call",
+  "params": {
+    "name": "struct",
+    "arguments": {
+      "action": "auto_create",
       "function_identifier": "0x00401000",
       "variable_name": "ctx"
     }
@@ -207,16 +327,33 @@ The Configuration tab allows you to:
 }
 ```
 
-### Setting Function Prototype
+### Find Struct Field Cross-References (Action-Based)
 
 ```json
 {
   "method": "tools/call",
   "params": {
-    "name": "set_function_prototype",
+    "name": "struct",
     "arguments": {
-      "function_address": "0x00401000",
-      "prototype": "int main(int argc, char** argv)"
+      "action": "field_xrefs",
+      "structure_name": "Host",
+      "field_name": "port"
+    }
+  }
+}
+```
+
+### Rename Function (Action-Based)
+
+```json
+{
+  "method": "tools/call",
+  "params": {
+    "name": "rename_symbol",
+    "arguments": {
+      "action": "function",
+      "address": "0x00401000",
+      "new_name": "decrypt_buffer"
     }
   }
 }
@@ -250,24 +387,17 @@ Then specify which program to target using `program_name`:
 }
 ```
 
-### Multi-Window Support & Active Context Awareness
+## Multi-Window Support & Active Context Awareness
 
 GhidrAssistMCP uses a singleton architecture that enables seamless operation across multiple CodeBrowser windows:
 
-#### How It Works
+### How It Works
 
 1. **Single Shared Server**: One MCP server (port 8080) serves all CodeBrowser windows
 2. **Focus Tracking**: Automatically detects which CodeBrowser window is currently active
 3. **Context Hints**: All tool responses include context information to help AI understand which binary is in focus
 
-#### Automatic Context Detection
-
-When you open multiple binaries in separate CodeBrowser windows, GhidrAssistMCP tracks:
-- Which window was most recently focused
-- Which program is currently active in that window
-- All programs open across all windows
-
-#### Context Information in Responses
+### Context Information in Responses
 
 Every tool response includes a context header:
 
@@ -285,25 +415,12 @@ or when targeting a different program:
 <tool response content>
 ```
 
-#### Benefits for AI Assistants
+### Benefits for AI Assistants
 
 - **Smart Defaults**: When no `program_name` is specified, tools automatically use the program from the active window
 - **Context Awareness**: AI knows which binary the user is currently viewing
 - **Prevents Confusion**: Clear indication when operating on a different binary than what's in the active window
 - **Multi-tasking**: Work with multiple binaries without constantly specifying which one to target
-
-#### Example Workflow
-
-1. Open `malware.exe` in CodeBrowser window 1
-2. Open `lib.dll` in CodeBrowser window 2
-3. Click on window 1 (focuses on `malware.exe`)
-4. Ask AI: "decompile the main function"
-   - AI receives context: `[Context] Operating on: malware.exe`
-   - Automatically targets the correct binary
-5. Switch to window 2 (`lib.dll`)
-6. Ask AI: "list functions"
-   - AI receives context: `[Context] Operating on: lib.dll`
-   - Automatically switches context
 
 ## Architecture
 
@@ -320,20 +437,53 @@ GhidrAssistMCP/
 ├── GhidrAssistMCPServer      # HTTP MCP server (SSE + Streamable)
 │   └── Single shared instance on port 8080
 ├── GhidrAssistMCPBackend     # Tool management and execution
-│   └── Single shared instance
+│   ├── Tool registry with enable/disable states
+│   ├── Result caching system
+│   ├── Async task management
+│   └── Resource and prompt registries
 ├── GhidrAssistMCPProvider    # UI component provider
 │   └── First registered instance provides UI
-└── tools/                    # Individual MCP tools (39 total)
-    ├── Analysis Tools/
-    ├── Modification Tools/
-    └── Navigation Tools/
+├── cache/                    # Caching infrastructure
+│   ├── McpCache.java
+│   └── CacheEntry.java
+├── tasks/                    # Async task management
+│   ├── McpTaskManager.java
+│   └── McpTask.java
+├── resources/                # MCP Resources (5 total)
+│   ├── ProgramInfoResource.java
+│   ├── FunctionListResource.java
+│   ├── StringsResource.java
+│   ├── ImportsResource.java
+│   └── ExportsResource.java
+├── prompts/                  # MCP Prompts (5 total)
+│   ├── AnalyzeFunctionPrompt.java
+│   ├── IdentifyVulnerabilityPrompt.java
+│   ├── DocumentFunctionPrompt.java
+│   ├── TraceDataFlowPrompt.java
+│   └── TraceNetworkDataPrompt.java
+└── tools/                    # MCP Tools (33 total)
+    ├── Consolidated action-based tools
+    ├── Analysis tools
+    ├── Modification tools
+    └── Navigation tools
 ```
 
-**Singleton Architecture**: Multiple CodeBrowser windows share a single MCP server and backend through the `GhidrAssistMCPManager` singleton. This ensures:
-- All open programs are visible regardless of which window they're in
-- Single server on port 8080 serves all windows
-- Focus tracking determines active context
-- Server lifecycle tied to all windows (starts with first, stops when all close)
+### Tool Design Patterns
+
+**Action-Based Tools**: Related operations are consolidated into single tools with an `action` parameter:
+- `get_code`: decompiler, disassembly, pcode
+- `class`: list, get_info
+- `struct`: create, modify, auto_create, rename_field, field_xrefs
+- `rename_symbol`: function, data, variable
+- `set_comment`: decompiler, disassembly
+- `bookmarks`: list, add, delete
+
+**Tool Interface Methods**:
+- `isReadOnly()`: Indicates if tool modifies program state
+- `isLongRunning()`: Triggers async execution with task management
+- `isCacheable()`: Enables result caching for repeated queries
+- `isDestructive()`: Marks potentially dangerous operations
+- `isIdempotent()`: Indicates if repeated calls produce same result
 
 ### MCP Protocol Implementation
 
@@ -346,16 +496,7 @@ GhidrAssistMCP/
   - `GET /mcp` - Receive Streamable HTTP events
   - `POST /mcp` - Initialize Streamable HTTP session
   - `DELETE /mcp` - Terminate Streamable HTTP session
-- **Tool Registration**: Dynamic tool discovery and registration
-- **Session Management**: Stateful sessions with proper lifecycle management
-
-### Plugin Architecture
-
-1. **Observer Pattern**: Decoupled UI updates using event listeners
-2. **Transaction Management**: Safe database operations with rollback support
-3. **Tool Registry**: Dynamic tool registration with enable/disable capability
-4. **Settings Persistence**: Configuration saved in Ghidra's settings system
-5. **Thread Safety**: Proper Swing EDT handling for UI operations
+- **Capabilities**: Tools, Resources, Prompts
 
 ## Development
 
@@ -364,18 +505,18 @@ GhidrAssistMCP/
 ```
 src/main/java/ghidrassistmcp/
 ├── GhidrAssistMCPPlugin.java      # Main plugin class
+├── GhidrAssistMCPManager.java     # Singleton coordinator
 ├── GhidrAssistMCPProvider.java    # UI provider with tabs
 ├── GhidrAssistMCPServer.java      # MCP server implementation
-├── GhidrAssistMCPBackend.java     # Backend tool management
+├── GhidrAssistMCPBackend.java     # Backend tool/resource/prompt management
 ├── McpBackend.java                # Backend interface
 ├── McpTool.java                   # Tool interface
 ├── McpEventListener.java          # Event notification interface
-└── tools/                         # Tool implementations
-    ├── ProgramInfoTool.java
-    ├── ListFunctionsTool.java
-    ├── DecompileFunctionTool.java
-    ├── AutoCreateStructTool.java
-    └── ... (39 total tools)
+├── cache/                         # Caching system
+├── tasks/                         # Async task system
+├── resources/                     # MCP resources
+├── prompts/                       # MCP prompts
+└── tools/                         # Tool implementations (33 files)
 ```
 
 ### Adding New Tools
@@ -385,13 +526,22 @@ src/main/java/ghidrassistmcp/
    public class MyCustomTool implements McpTool {
        @Override
        public String getName() { return "my_custom_tool"; }
-       
+
        @Override
        public String getDescription() { return "Description"; }
-       
+
+       @Override
+       public boolean isReadOnly() { return true; }
+
+       @Override
+       public boolean isLongRunning() { return false; }
+
+       @Override
+       public boolean isCacheable() { return true; }
+
        @Override
        public McpSchema.JsonSchema getInputSchema() { /* ... */ }
-       
+
        @Override
        public McpSchema.CallToolResult execute(Map<String, Object> arguments, Program program) {
            // Implementation
@@ -437,12 +587,15 @@ The **Log** tab provides real-time monitoring:
 - **Tool Requests**: `REQ: tool_name {parameters...}`
 - **Tool Responses**: `RES: tool_name {response...}`
 - **Error Messages**: Failed operations and diagnostics
+- **Cache Hits**: When cached results are returned
 
 ### Console Logging
 
 Detailed logging in Ghidra's console:
 - Tool registration and initialization
 - MCP server lifecycle events
+- Async task execution and completion
+- Cache statistics
 - Database transaction operations
 - Error stack traces and debugging information
 
@@ -470,6 +623,11 @@ Detailed logging in Ghidra's console:
 - Check tool parameters are correct
 - Review error messages in Log tab
 
+**Async Task Issues**
+- Use `get_task_status` to check task state
+- Use `list_tasks` to see all tasks
+- Use `cancel_task` if a task is stuck
+
 ### Debug Mode
 
 Enable debug logging by adding to Ghidra startup:
@@ -492,6 +650,7 @@ Enable debug logging by adding to Ghidra startup:
 - **Transaction safety** for all database operations
 - **Thread safety** for UI operations
 - **Comprehensive documentation** for public APIs
+- **Action-based consolidation** for related tool operations
 
 ## License
 

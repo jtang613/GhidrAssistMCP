@@ -14,7 +14,12 @@ import io.modelcontextprotocol.spec.McpSchema;
  * MCP tool that provides detailed information about a specific function.
  */
 public class GetFunctionInfoTool implements McpTool {
-    
+
+    @Override
+    public boolean isCacheable() {
+        return true;
+    }
+
     @Override
     public String getName() {
         return "get_function_info";

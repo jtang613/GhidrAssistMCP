@@ -16,7 +16,12 @@ import io.modelcontextprotocol.spec.McpSchema;
  * MCP tool that lists string data found in the program.
  */
 public class ListStringsTool implements McpTool {
-    
+
+    @Override
+    public boolean isCacheable() {
+        return true;
+    }
+
     @Override
     public String getName() {
         return "list_strings";

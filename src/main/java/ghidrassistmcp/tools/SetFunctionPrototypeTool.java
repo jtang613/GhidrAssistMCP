@@ -27,7 +27,17 @@ import io.modelcontextprotocol.spec.McpSchema;
  * MCP tool that sets a function's prototype/signature.
  */
 public class SetFunctionPrototypeTool implements McpTool {
-    
+
+    @Override
+    public boolean isReadOnly() {
+        return false;
+    }
+
+    @Override
+    public boolean isIdempotent() {
+        return true;
+    }
+
     @Override
     public String getName() {
         return "set_function_prototype";

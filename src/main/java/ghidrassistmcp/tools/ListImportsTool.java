@@ -17,7 +17,12 @@ import io.modelcontextprotocol.spec.McpSchema;
  * MCP tool that lists imported functions and symbols.
  */
 public class ListImportsTool implements McpTool {
-    
+
+    @Override
+    public boolean isCacheable() {
+        return true;
+    }
+
     @Override
     public String getName() {
         return "list_imports";

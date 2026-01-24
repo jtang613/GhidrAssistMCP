@@ -120,10 +120,6 @@ public class GetHexdumpTool implements McpTool {
             return McpSchema.CallToolResult.builder()
                 .addTextContent(hexdump)
                 .build();
-        } catch (MemoryAccessException e) {
-            return McpSchema.CallToolResult.builder()
-                .addTextContent("Memory access error at address " + addressStr + ": " + e.getMessage())
-                .build();
         } catch (Exception e) {
             return McpSchema.CallToolResult.builder()
                 .addTextContent("Error generating hexdump: " + e.getMessage())
@@ -135,8 +131,7 @@ public class GetHexdumpTool implements McpTool {
      * Generate a hexdump in standard format with hex and ASCII representation.
      * Format: ADDRESS  HEX_BYTES (16 per line, grouped by 8)  |ASCII|
      */
-    private String generateHexdump(Program program, Address startAddr, int length)
-            throws MemoryAccessException {
+    private String generateHexdump(Program program, Address startAddr, int length) {
         StringBuilder result = new StringBuilder();
         Memory memory = program.getMemory();
 

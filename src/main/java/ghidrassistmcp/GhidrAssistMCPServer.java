@@ -4,6 +4,7 @@
 package ghidrassistmcp;
 
 import java.time.Duration;
+import java.util.List;
 import java.util.Map;
 import java.util.function.BiFunction;
 
@@ -16,6 +17,7 @@ import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.modelcontextprotocol.json.jackson.JacksonMcpJsonMapper;
 import io.modelcontextprotocol.server.McpServer;
+import io.modelcontextprotocol.server.McpServerFeatures;
 import io.modelcontextprotocol.server.McpSyncServerExchange;
 import io.modelcontextprotocol.server.transport.HttpServletSseServerTransportProvider;
 import io.modelcontextprotocol.server.transport.HttpServletStreamableServerTransportProvider;
@@ -23,6 +25,8 @@ import io.modelcontextprotocol.spec.McpSchema;
 
 import ghidra.program.model.listing.Program;
 import ghidra.util.Msg;
+import ghidrassistmcp.prompts.McpPrompt;
+import ghidrassistmcp.resources.McpResource;
 
 /**
  * Refactored MCP Server implementation that uses the backend architecture.
@@ -113,6 +117,13 @@ public class GhidrAssistMCPServer {
                 Msg.info(this, "Registered tool with MCP server: " + toolName);
             }
 
+            // Register MCP resources and prompts if backend supports them
+            if (backend instanceof GhidrAssistMCPBackend) {
+                GhidrAssistMCPBackend ghidraBackend = (GhidrAssistMCPBackend) backend;
+                registerResources(sseServerBuilder, streamableServerBuilder, ghidraBackend);
+                registerPrompts(sseServerBuilder, streamableServerBuilder, ghidraBackend);
+            }
+
             sseServerBuilder.build();
             streamableServerBuilder.build();
             
@@ -191,5 +202,114 @@ public class GhidrAssistMCPServer {
     public void setCurrentProgram(Program program) {
         backend.onProgramActivated(program);
     }
-    
+
+    /**
+     * Register MCP prompts with the server builders.
+     */
+    @SuppressWarnings({ "unchecked", "rawtypes" })
+    private void registerPrompts(McpServer.SyncSpecification sseServerBuilder,
+                                  McpServer.SyncSpecification streamableServerBuilder,
+                                  GhidrAssistMCPBackend ghidraBackend) {
+        try {
+            List<McpPrompt> prompts = ghidraBackend.getAvailablePrompts();
+            java.util.List<McpServerFeatures.SyncPromptSpecification> promptSpecs = new java.util.ArrayList<>();
+
+            for (McpPrompt prompt : prompts) {
+                // Create McpSchema.Prompt for each prompt
+                McpSchema.Prompt mcpPrompt = new McpSchema.Prompt(
+                    prompt.getName(),
+                    prompt.getDescription(),
+                    prompt.getArguments()
+                );
+
+                // Create handler for getting the prompt
+                BiFunction<McpSyncServerExchange, McpSchema.GetPromptRequest, McpSchema.GetPromptResult> promptHandler =
+                    (exchange, request) -> {
+                        Map<String, Object> rawArgs = request.arguments();
+                        Map<String, String> args = new java.util.HashMap<>();
+                        if (rawArgs != null) {
+                            for (Map.Entry<String, Object> entry : rawArgs.entrySet()) {
+                                args.put(entry.getKey(), entry.getValue() != null ? entry.getValue().toString() : null);
+                            }
+                        }
+                        Program program = ghidraBackend.getCurrentProgram();
+                        return prompt.generatePrompt(args, program);
+                    };
+
+                // Create specification
+                McpServerFeatures.SyncPromptSpecification spec =
+                    new McpServerFeatures.SyncPromptSpecification(mcpPrompt, promptHandler);
+                promptSpecs.add(spec);
+                Msg.info(this, "Prepared prompt for registration: " + prompt.getName());
+            }
+
+            // Register all prompts with both builders
+            if (!promptSpecs.isEmpty()) {
+                sseServerBuilder.prompts(promptSpecs);
+                streamableServerBuilder.prompts(promptSpecs);
+                Msg.info(this, "Registered " + promptSpecs.size() + " MCP prompts");
+            }
+
+        } catch (Exception e) {
+            Msg.warn(this, "Failed to register MCP prompts: " + e.getMessage(), e);
+        }
+    }
+
+    /**
+     * Register MCP resources with the server builders.
+     */
+    @SuppressWarnings({ "unchecked", "rawtypes" })
+    private void registerResources(McpServer.SyncSpecification sseServerBuilder,
+                                   McpServer.SyncSpecification streamableServerBuilder,
+                                   GhidrAssistMCPBackend ghidraBackend) {
+        try {
+            List<McpResource> resources = ghidraBackend.getAvailableResources();
+            java.util.List<McpServerFeatures.SyncResourceSpecification> resourceSpecs = new java.util.ArrayList<>();
+
+            for (McpResource resource : resources) {
+                // Create McpSchema.Resource for each resource
+                McpSchema.Resource mcpResource = McpSchema.Resource.builder()
+                    .uri(resource.getUriPattern())
+                    .name(resource.getName())
+                    .description(resource.getDescription())
+                    .mimeType(resource.getMimeType())
+                    .build();
+
+                // Create handler for reading the resource
+                BiFunction<McpSyncServerExchange, McpSchema.ReadResourceRequest, McpSchema.ReadResourceResult> readHandler =
+                    (exchange, request) -> {
+                        String uri = request.uri();
+                        String content = ghidraBackend.readResource(uri);
+
+                        if (content == null) {
+                            content = "{\"error\": \"Resource not found: " + uri + "\"}";
+                        }
+
+                        McpSchema.ResourceContents contents = new McpSchema.TextResourceContents(
+                            uri,
+                            resource.getMimeType(),
+                            content
+                        );
+
+                        return new McpSchema.ReadResourceResult(List.of(contents));
+                    };
+
+                // Create specification
+                McpServerFeatures.SyncResourceSpecification spec =
+                    new McpServerFeatures.SyncResourceSpecification(mcpResource, readHandler);
+                resourceSpecs.add(spec);
+                Msg.info(this, "Prepared resource for registration: " + resource.getName());
+            }
+
+            // Register all resources with both builders
+            if (!resourceSpecs.isEmpty()) {
+                sseServerBuilder.resources(resourceSpecs);
+                streamableServerBuilder.resources(resourceSpecs);
+                Msg.info(this, "Registered " + resourceSpecs.size() + " MCP resources");
+            }
+
+        } catch (Exception e) {
+            Msg.warn(this, "Failed to register MCP resources: " + e.getMessage(), e);
+        }
+    }
 }

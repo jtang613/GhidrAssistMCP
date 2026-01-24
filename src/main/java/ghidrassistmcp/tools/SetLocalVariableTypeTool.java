@@ -24,7 +24,17 @@ import io.modelcontextprotocol.spec.McpSchema;
  * MCP tool that sets the data type of a local variable within a function.
  */
 public class SetLocalVariableTypeTool implements McpTool {
-    
+
+    @Override
+    public boolean isReadOnly() {
+        return false;
+    }
+
+    @Override
+    public boolean isIdempotent() {
+        return true;
+    }
+
     @Override
     public String getName() {
         return "set_local_variable_type";

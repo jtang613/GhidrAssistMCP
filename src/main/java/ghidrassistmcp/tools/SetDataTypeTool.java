@@ -18,7 +18,17 @@ import io.modelcontextprotocol.spec.McpSchema;
  * MCP tool that sets the data type at a specific address.
  */
 public class SetDataTypeTool implements McpTool {
-    
+
+    @Override
+    public boolean isReadOnly() {
+        return false;
+    }
+
+    @Override
+    public boolean isIdempotent() {
+        return true;
+    }
+
     @Override
     public String getName() {
         return "set_data_type";

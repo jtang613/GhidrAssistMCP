@@ -12,19 +12,35 @@ import java.util.concurrent.CopyOnWriteArrayList;
 
 import ghidra.program.model.listing.Program;
 import ghidra.util.Msg;
-import ghidrassistmcp.tools.AutoCreateStructTool;
-import ghidrassistmcp.tools.CreateStructTool;
-import ghidrassistmcp.tools.DecompileFunctionTool;
-import ghidrassistmcp.tools.DisassembleFunctionTool;
-import ghidrassistmcp.tools.FunctionXrefsTool;
-import ghidrassistmcp.tools.GetClassInfoTool;
+import ghidrassistmcp.cache.McpCache;
+import ghidrassistmcp.prompts.AnalyzeFunctionPrompt;
+import ghidrassistmcp.prompts.DocumentFunctionPrompt;
+import ghidrassistmcp.prompts.IdentifyVulnerabilityPrompt;
+import ghidrassistmcp.prompts.McpPrompt;
+import ghidrassistmcp.prompts.McpPromptRegistry;
+import ghidrassistmcp.prompts.TraceDataFlowPrompt;
+import ghidrassistmcp.prompts.TraceNetworkDataPrompt;
+import ghidrassistmcp.resources.ExportsResource;
+import ghidrassistmcp.resources.FunctionListResource;
+import ghidrassistmcp.resources.ImportsResource;
+import ghidrassistmcp.resources.McpResource;
+import ghidrassistmcp.resources.McpResourceRegistry;
+import ghidrassistmcp.resources.ProgramInfoResource;
+import ghidrassistmcp.resources.StringsResource;
+import ghidrassistmcp.tasks.McpTask;
+import ghidrassistmcp.tasks.McpTaskManager;
+import ghidrassistmcp.tools.BookmarksTool;
+import ghidrassistmcp.tools.CancelTaskTool;
+import ghidrassistmcp.tools.ClassTool;
+import ghidrassistmcp.tools.GetBasicBlocksTool;
+import ghidrassistmcp.tools.GetCallGraphTool;
+import ghidrassistmcp.tools.GetCodeTool;
 import ghidrassistmcp.tools.GetCurrentAddressTool;
 import ghidrassistmcp.tools.GetCurrentFunctionTool;
 import ghidrassistmcp.tools.GetDataTypeTool;
-import ghidrassistmcp.tools.GetFunctionByAddressTool;
 import ghidrassistmcp.tools.GetFunctionInfoTool;
 import ghidrassistmcp.tools.GetHexdumpTool;
-import ghidrassistmcp.tools.ListClassesTool;
+import ghidrassistmcp.tools.GetTaskStatusTool;
 import ghidrassistmcp.tools.ListDataTool;
 import ghidrassistmcp.tools.ListDataTypesTool;
 import ghidrassistmcp.tools.ListExportsTool;
@@ -33,25 +49,19 @@ import ghidrassistmcp.tools.ListFunctionsTool;
 import ghidrassistmcp.tools.ListImportsTool;
 import ghidrassistmcp.tools.ListMethodsTool;
 import ghidrassistmcp.tools.ListNamespacesTool;
+import ghidrassistmcp.tools.ListRelocationsTool;
 import ghidrassistmcp.tools.ListSegmentsTool;
 import ghidrassistmcp.tools.ListStringsTool;
-import ghidrassistmcp.tools.ModifyStructTool;
+import ghidrassistmcp.tools.ListTasksTool;
 import ghidrassistmcp.tools.ProgramInfoTool;
-import ghidrassistmcp.tools.RenameDataTool;
-import ghidrassistmcp.tools.RenameFunctionByAddressTool;
-import ghidrassistmcp.tools.RenameFunctionTool;
-import ghidrassistmcp.tools.RenameStructureFieldTool;
-import ghidrassistmcp.tools.RenameVariableTool;
-import ghidrassistmcp.tools.SearchClassesTool;
-import ghidrassistmcp.tools.SearchFunctionsTool;
+import ghidrassistmcp.tools.RenameSymbolTool;
+import ghidrassistmcp.tools.SearchBytesTool;
+import ghidrassistmcp.tools.SetCommentTool;
 import ghidrassistmcp.tools.SetDataTypeTool;
-import ghidrassistmcp.tools.SetDecompilerCommentTool;
-import ghidrassistmcp.tools.SetDisassemblyCommentTool;
 import ghidrassistmcp.tools.SetFunctionPrototypeTool;
 import ghidrassistmcp.tools.SetLocalVariableTypeTool;
-import ghidrassistmcp.tools.StructFieldXrefsTool;
-import ghidrassistmcp.tools.XrefsFromTool;
-import ghidrassistmcp.tools.XrefsToTool;
+import ghidrassistmcp.tools.StructTool;
+import ghidrassistmcp.tools.XrefsTool;
 import io.modelcontextprotocol.spec.McpSchema;
 
 /**
@@ -64,50 +74,65 @@ public class GhidrAssistMCPBackend implements McpBackend {
     private final Map<String, Boolean> toolEnabledStates = new ConcurrentHashMap<>();
     private final List<McpEventListener> eventListeners = new CopyOnWriteArrayList<>();
     private volatile GhidrAssistMCPManager manager;
+    private final McpTaskManager taskManager;
+    private final McpResourceRegistry resourceRegistry;
+    private final McpPromptRegistry promptRegistry;
+    private final McpCache cache;
     
     public GhidrAssistMCPBackend() {
+        // Initialize task manager for async operations
+        this.taskManager = new McpTaskManager();
+
+        // Initialize resource registry
+        this.resourceRegistry = new McpResourceRegistry();
+        registerBuiltinResources();
+
+        // Initialize prompt registry
+        this.promptRegistry = new McpPromptRegistry();
+        registerBuiltinPrompts();
+
+        // Initialize result cache
+        this.cache = new McpCache();
+
         // Register built-in tools
         registerTool(new ProgramInfoTool());
         registerTool(new ListFunctionsTool());
         registerTool(new GetFunctionInfoTool());
-        registerTool(new DecompileFunctionTool());
-        registerTool(new DisassembleFunctionTool());
-        registerTool(new RenameFunctionTool());
-        registerTool(new RenameFunctionByAddressTool());
-        registerTool(new RenameVariableTool());
-        registerTool(new XrefsToTool());
-        registerTool(new XrefsFromTool());
         registerTool(new ListMethodsTool());
         registerTool(new ListSegmentsTool());
         registerTool(new ListImportsTool());
         registerTool(new ListExportsTool());
         registerTool(new ListStringsTool());
-        registerTool(new SearchFunctionsTool());
-        registerTool(new GetFunctionByAddressTool());
         registerTool(new GetCurrentAddressTool());
         registerTool(new GetHexdumpTool());
         registerTool(new GetCurrentFunctionTool());
         registerTool(new GetDataTypeTool());
-        registerTool(new SetDisassemblyCommentTool());
-        registerTool(new SetDecompilerCommentTool());
         registerTool(new ListDataTool());
         registerTool(new ListDataTypesTool());
         registerTool(new ListNamespacesTool());
         registerTool(new ListProgramsTool());
-        registerTool(new ListClassesTool());
-        registerTool(new SearchClassesTool());
-        registerTool(new GetClassInfoTool());
-        registerTool(new RenameDataTool());
-        registerTool(new FunctionXrefsTool());
-        registerTool(new StructFieldXrefsTool());
+        registerTool(new ClassTool());          // Consolidated class tool (list, get_info)
         registerTool(new SetFunctionPrototypeTool());
         registerTool(new SetLocalVariableTypeTool());
         registerTool(new SetDataTypeTool());
-        registerTool(new AutoCreateStructTool());
-        registerTool(new CreateStructTool());
-        registerTool(new ModifyStructTool());
-        registerTool(new RenameStructureFieldTool());
-        
+
+        // Register async task management tools
+        registerTool(new GetTaskStatusTool());
+        registerTool(new CancelTaskTool());
+        registerTool(new ListTasksTool());
+
+        // Register consolidated and advanced tools
+        registerTool(new GetCodeTool());        // Consolidates decompile, disassemble, pcode
+        registerTool(new SetCommentTool());     // Consolidates decompiler and disassembly comments
+        registerTool(new RenameSymbolTool());   // Consolidates function, data, variable rename
+        registerTool(new XrefsTool());          // Consolidated xrefs with address and function support
+        registerTool(new StructTool());         // Consolidates create, modify, auto_create, rename_field
+        registerTool(new GetCallGraphTool());
+        registerTool(new SearchBytesTool());
+        registerTool(new BookmarksTool());
+        registerTool(new GetBasicBlocksTool());
+        registerTool(new ListRelocationsTool());
+
         Msg.info(this, "GhidrAssistMCP Backend initialized with " + tools.size() + " tools");
     }
     
@@ -137,11 +162,22 @@ public class GhidrAssistMCPBackend implements McpBackend {
                 // Augment the schema with program_name parameter for multi-program support
                 McpSchema.JsonSchema augmentedSchema = augmentSchemaWithProgramName(tool.getInputSchema());
 
+                // Build tool annotations based on McpTool interface methods
+                McpSchema.ToolAnnotations annotations = new McpSchema.ToolAnnotations(
+                    null,  // title - will use tool name
+                    tool.isReadOnly(),
+                    tool.isDestructive(),
+                    tool.isIdempotent(),
+                    tool.isOpenWorld(),
+                    null   // returnDirect
+                );
+
                 toolList.add(McpSchema.Tool.builder()
                     .name(tool.getName())
                     .title(tool.getName())
                     .description(tool.getDescription())
                     .inputSchema(augmentedSchema)
+                    .annotations(annotations)
                     .build());
             }
         }
@@ -220,11 +256,34 @@ public class GhidrAssistMCPBackend implements McpBackend {
             // Resolve the target program - check if program_name is specified
             Program targetProgram = resolveTargetProgram(arguments);
 
-            // Use the backend-aware execute method for multi-program support
+            // Check cache for cacheable tools
+            if (tool.isCacheable() && targetProgram != null) {
+                String cacheKey = cache.generateKey(toolName, arguments, targetProgram.getName());
+                McpSchema.CallToolResult cachedResult = cache.get(cacheKey, targetProgram);
+                if (cachedResult != null) {
+                    Msg.info(this, "Cache hit for tool: " + toolName);
+                    notifyToolResponse(toolName, cachedResult);
+                    return cachedResult;
+                }
+            }
+
+            // Check if this is a long-running tool that should be executed asynchronously
+            if (tool.isLongRunning()) {
+                return executeToolAsync(tool, toolName, arguments, targetProgram);
+            }
+
+            // Execute synchronously for normal tools
             McpSchema.CallToolResult result = tool.execute(arguments, targetProgram, this);
 
             // Add active context information to help LLM understand which binary is in focus
             result = addActiveContextToResult(result, targetProgram);
+
+            // Cache the result if tool is cacheable
+            if (tool.isCacheable() && targetProgram != null) {
+                String cacheKey = cache.generateKey(toolName, arguments, targetProgram.getName());
+                cache.put(cacheKey, result, targetProgram);
+                Msg.debug(this, "Cached result for tool: " + toolName);
+            }
 
             // Notify listeners of the response
             notifyToolResponse(toolName, result);
@@ -242,7 +301,129 @@ public class GhidrAssistMCPBackend implements McpBackend {
             return errorResult;
         }
     }
-    
+
+    /**
+     * Execute a long-running tool asynchronously and return a task ID.
+     */
+    private McpSchema.CallToolResult executeToolAsync(McpTool tool, String toolName,
+                                                       Map<String, Object> arguments, Program targetProgram) {
+        // Create a reference to this backend for the async execution
+        final GhidrAssistMCPBackend backend = this;
+
+        McpTask task = taskManager.submitTask(toolName, arguments, () -> {
+            try {
+                McpSchema.CallToolResult result = tool.execute(arguments, targetProgram, backend);
+                result = addActiveContextToResult(result, targetProgram);
+                notifyToolResponse(toolName, result);
+                return result;
+            } catch (Exception e) {
+                Msg.error(this, "Async tool execution failed: " + toolName, e);
+                throw new RuntimeException(e);
+            }
+        });
+
+        // Return task information immediately
+        return McpSchema.CallToolResult.builder()
+            .addTextContent("Task submitted for async execution.\n\n" +
+                "Task ID: " + task.getTaskId() + "\n" +
+                "Tool: " + toolName + "\n" +
+                "Status: " + task.getStatus() + "\n\n" +
+                "Use get_task_status with this task_id to check progress and retrieve results.\n" +
+                "Use cancel_task to cancel if needed.")
+            .build();
+    }
+
+    /**
+     * Get the task manager for async operations.
+     */
+    public McpTaskManager getTaskManager() {
+        return taskManager;
+    }
+
+    /**
+     * Get the resource registry.
+     */
+    public McpResourceRegistry getResourceRegistry() {
+        return resourceRegistry;
+    }
+
+    /**
+     * Register built-in MCP resources.
+     */
+    private void registerBuiltinResources() {
+        resourceRegistry.registerResource(new ProgramInfoResource());
+        resourceRegistry.registerResource(new FunctionListResource());
+        resourceRegistry.registerResource(new StringsResource());
+        resourceRegistry.registerResource(new ImportsResource());
+        resourceRegistry.registerResource(new ExportsResource());
+        Msg.info(this, "Registered " + resourceRegistry.getResourceCount() + " MCP resources");
+    }
+
+    /**
+     * Register built-in MCP prompts.
+     */
+    private void registerBuiltinPrompts() {
+        promptRegistry.registerPrompt(new AnalyzeFunctionPrompt());
+        promptRegistry.registerPrompt(new IdentifyVulnerabilityPrompt());
+        promptRegistry.registerPrompt(new DocumentFunctionPrompt());
+        promptRegistry.registerPrompt(new TraceDataFlowPrompt());
+        promptRegistry.registerPrompt(new TraceNetworkDataPrompt());
+        Msg.info(this, "Registered " + promptRegistry.getPromptCount() + " MCP prompts");
+    }
+
+    /**
+     * Get the prompt registry.
+     */
+    public McpPromptRegistry getPromptRegistry() {
+        return promptRegistry;
+    }
+
+    /**
+     * Get available prompts for the MCP SDK.
+     */
+    public List<McpPrompt> getAvailablePrompts() {
+        return promptRegistry.getAllPrompts();
+    }
+
+    /**
+     * Get the result cache.
+     */
+    public McpCache getCache() {
+        return cache;
+    }
+
+    /**
+     * Get cache statistics summary.
+     */
+    public String getCacheStats() {
+        return cache.getStats();
+    }
+
+    /**
+     * Clear the cache (e.g., when program is significantly modified).
+     */
+    public void clearCache() {
+        cache.clear();
+    }
+
+    /**
+     * Read a resource by URI.
+     *
+     * @param uri The resource URI
+     * @return The resource content
+     */
+    public String readResource(String uri) {
+        Program program = getCurrentProgram();
+        return resourceRegistry.readResource(uri, program);
+    }
+
+    /**
+     * Get available resources for the MCP SDK.
+     */
+    public List<McpResource> getAvailableResources() {
+        return resourceRegistry.getAllResources();
+    }
+
     @Override
     public void onProgramActivated(Program program) {
         // Program activation is now handled dynamically - no caching needed
@@ -270,6 +451,8 @@ public class GhidrAssistMCPBackend implements McpBackend {
     public McpSchema.ServerCapabilities getCapabilities() {
         return McpSchema.ServerCapabilities.builder()
             .tools(true)
+            .resources(false, false)  // subscribe=false, listChanged=false
+            .prompts(false)           // listChanged=false
             .build();
     }
     
@@ -295,9 +478,8 @@ public class GhidrAssistMCPBackend implements McpBackend {
                 if (found != null) {
                     Msg.info(this, "Resolved program by name: " + found.getName());
                     return found;
-                } else {
-                    Msg.warn(this, "Program not found: " + programName + ", using current program");
                 }
+                Msg.warn(this, "Program not found: " + programName + ", using current program");
             }
         }
 
@@ -427,6 +609,7 @@ public class GhidrAssistMCPBackend implements McpBackend {
     /**
      * Notify listeners of a general log message.
      */
+    @SuppressWarnings("unused")
     private void notifyLogMessage(String message) {
         for (McpEventListener listener : eventListeners) {
             try {
