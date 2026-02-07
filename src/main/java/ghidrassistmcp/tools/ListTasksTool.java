@@ -31,7 +31,11 @@ public class ListTasksTool implements McpTool {
     public McpSchema.JsonSchema getInputSchema() {
         return new McpSchema.JsonSchema("object",
             Map.of(
-                "status", new McpSchema.JsonSchema("string", null, null, null, null, null)
+                "status", Map.of(
+                    "type", "string",
+                    "description", "Optional: filter tasks by status",
+                    "enum", List.of("PENDING", "RUNNING", "COMPLETED", "FAILED", "CANCELLED")
+                )
             ),
             List.of(), null, null, null);
     }

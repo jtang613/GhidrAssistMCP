@@ -45,11 +45,29 @@ public class SetCommentTool implements McpTool {
     public McpSchema.JsonSchema getInputSchema() {
         return new McpSchema.JsonSchema("object",
             Map.of(
-                "target", new McpSchema.JsonSchema("string", null, null, null, null, null),
-                "function_name", new McpSchema.JsonSchema("string", null, null, null, null, null),
-                "address", new McpSchema.JsonSchema("string", null, null, null, null, null),
-                "comment", new McpSchema.JsonSchema("string", null, null, null, null, null),
-                "comment_type", new McpSchema.JsonSchema("string", null, null, null, null, null)
+                "target", Map.of(
+                    "type", "string",
+                    "description", "Where to set the comment",
+                    "enum", List.of("function", "address")
+                ),
+                "function_name", Map.of(
+                    "type", "string",
+                    "description", "Required when target is 'function': function name"
+                ),
+                "address", Map.of(
+                    "type", "string",
+                    "description", "Required when target is 'address': address string"
+                ),
+                "comment", Map.of(
+                    "type", "string",
+                    "description", "Comment text"
+                ),
+                "comment_type", Map.of(
+                    "type", "string",
+                    "description", "Optional: comment type for target 'address' (canonical values). Aliases like 'eol_comment' are accepted at runtime.",
+                    "enum", List.of("eol", "pre", "post", "plate", "repeatable"),
+                    "default", "eol"
+                )
             ),
             List.of("target", "comment"), null, null, null);
     }

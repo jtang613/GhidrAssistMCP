@@ -62,10 +62,23 @@ public class RenameSymbolTool implements McpTool {
     public McpSchema.JsonSchema getInputSchema() {
         return new McpSchema.JsonSchema("object",
             Map.of(
-                "target_type", new McpSchema.JsonSchema("string", null, null, null, null, null),
-                "identifier", new McpSchema.JsonSchema("string", null, null, null, null, null),
-                "new_name", new McpSchema.JsonSchema("string", null, null, null, null, null),
-                "variable_name", new McpSchema.JsonSchema("string", null, null, null, null, null)
+                "target_type", Map.of(
+                    "type", "string",
+                    "description", "What kind of symbol to rename",
+                    "enum", List.of("function", "data", "variable")
+                ),
+                "identifier", Map.of(
+                    "type", "string",
+                    "description", "Target identifier (function: old function name; data: address string; variable: function name)"
+                ),
+                "new_name", Map.of(
+                    "type", "string",
+                    "description", "New symbol name (functions may be qualified like Namespace::Func)"
+                ),
+                "variable_name", Map.of(
+                    "type", "string",
+                    "description", "Required when target_type is 'variable': old local name to rename"
+                )
             ),
             List.of("target_type", "identifier", "new_name"), null, null, null);
     }

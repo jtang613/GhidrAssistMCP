@@ -41,10 +41,24 @@ public class XrefsTool implements McpTool {
     public McpSchema.JsonSchema getInputSchema() {
         return new McpSchema.JsonSchema("object",
             Map.of(
-                "address", new McpSchema.JsonSchema("string", null, null, null, null, null),
-                "function", new McpSchema.JsonSchema("string", null, null, null, null, null),
-                "direction", new McpSchema.JsonSchema("string", null, null, null, null, null),
-                "limit", new McpSchema.JsonSchema("integer", null, null, null, null, null)
+                "address", Map.of(
+                    "type", "string",
+                    "description", "Optional: address to find xrefs for (either address or function must be provided)"
+                ),
+                "function", Map.of(
+                    "type", "string",
+                    "description", "Optional: function name to find callers/callees xrefs for (either address or function must be provided)"
+                ),
+                "direction", Map.of(
+                    "type", "string",
+                    "description", "Direction of cross-references to return",
+                    "enum", List.of("to", "from", "both"),
+                    "default", "both"
+                ),
+                "limit", Map.of(
+                    "type", "integer",
+                    "description", "Maximum number of references to return (default 100)"
+                )
             ),
             List.of(), null, null, null);  // Neither address nor function is strictly required, but one must be provided
     }

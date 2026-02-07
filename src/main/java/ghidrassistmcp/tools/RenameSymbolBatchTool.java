@@ -53,10 +53,23 @@ public class RenameSymbolBatchTool implements McpTool {
     public McpSchema.JsonSchema getInputSchema() {
         // NOTE: McpSchema.JsonSchema doesn't have an 'items' field, so we represent arrays using raw Maps.
         Map<String, Object> renameItemProps = new HashMap<>();
-        renameItemProps.put("target_type", new McpSchema.JsonSchema("string", null, null, null, null, null));
-        renameItemProps.put("identifier", new McpSchema.JsonSchema("string", null, null, null, null, null));
-        renameItemProps.put("new_name", new McpSchema.JsonSchema("string", null, null, null, null, null));
-        renameItemProps.put("variable_name", new McpSchema.JsonSchema("string", null, null, null, null, null));
+        renameItemProps.put("target_type", Map.of(
+            "type", "string",
+            "description", "What kind of symbol to rename",
+            "enum", List.of("function", "data", "variable")
+        ));
+        renameItemProps.put("identifier", Map.of(
+            "type", "string",
+            "description", "Target identifier (function: old function name; data: address string; variable: function name)"
+        ));
+        renameItemProps.put("new_name", Map.of(
+            "type", "string",
+            "description", "New symbol name (functions may be qualified like Namespace::Func)"
+        ));
+        renameItemProps.put("variable_name", Map.of(
+            "type", "string",
+            "description", "Required when target_type is 'variable': old local name to rename"
+        ));
 
         Map<String, Object> renameItemSchema = new HashMap<>();
         renameItemSchema.put("type", "object");

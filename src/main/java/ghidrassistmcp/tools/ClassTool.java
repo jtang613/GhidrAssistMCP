@@ -149,7 +149,11 @@ public class ClassTool implements McpTool {
     @Override
     public McpSchema.JsonSchema getInputSchema() {
         Map<String, Object> props = new HashMap<>();
-        props.put("action", new McpSchema.JsonSchema("string", null, null, null, null, null));
+        props.put("action", Map.of(
+            "type", "string",
+            "description", "Class operation to perform",
+            "enum", List.of("list", "get_info")
+        ));
         props.put("class_name", new McpSchema.JsonSchema("string", null, null, null, null, null));
         props.put("pattern", new McpSchema.JsonSchema("string", null, null, null, null, null));
         props.put("case_sensitive", new McpSchema.JsonSchema("boolean", null, null, null, null, null));

@@ -39,9 +39,21 @@ public class GetCallGraphTool implements McpTool {
     public McpSchema.JsonSchema getInputSchema() {
         return new McpSchema.JsonSchema("object",
             Map.of(
-                "function", new McpSchema.JsonSchema("string", null, null, null, null, null),
-                "depth", new McpSchema.JsonSchema("integer", null, null, null, null, null),
-                "direction", new McpSchema.JsonSchema("string", null, null, null, null, null)
+                "function", Map.of(
+                    "type", "string",
+                    "description", "Function identifier (name or address)"
+                ),
+                "depth", Map.of(
+                    "type", "integer",
+                    "description", "Optional: max graph depth (default 2, capped at 5)",
+                    "default", 2
+                ),
+                "direction", Map.of(
+                    "type", "string",
+                    "description", "Optional: which side of the call graph to return",
+                    "enum", List.of("both", "callers", "callees"),
+                    "default", "both"
+                )
             ),
             List.of("function"), null, null, null);
     }
@@ -64,7 +76,16 @@ public class GetCallGraphTool implements McpTool {
         }
 
         if (arguments.get("direction") instanceof String) {
-            direction = ((String) arguments.get("direction")).toLowerCase();
+            String dir = (String) arguments.get("direction");
+            if (dir != null && !dir.trim().isEmpty()) {
+                direction = dir.toLowerCase();
+            }
+        }
+
+        if (!direction.equals("both") && !direction.equals("callers") && !direction.equals("callees")) {
+            return McpSchema.CallToolResult.builder()
+                .addTextContent("Invalid direction. Use 'both', 'callers', or 'callees'")
+                .build();
         }
 
         // Find the function

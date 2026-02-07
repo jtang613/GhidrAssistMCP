@@ -56,9 +56,20 @@ public class GetCodeTool implements McpTool {
     public McpSchema.JsonSchema getInputSchema() {
         return new McpSchema.JsonSchema("object",
             Map.of(
-                "function", new McpSchema.JsonSchema("string", null, null, null, null, null),
-                "format", new McpSchema.JsonSchema("string", null, null, null, null, null),
-                "raw", new McpSchema.JsonSchema("boolean", null, null, null, null, null)
+                "function", Map.of(
+                    "type", "string",
+                    "description", "Function identifier (name, qualified name like Namespace::Func, or address like 0x401000)"
+                ),
+                "format", Map.of(
+                    "type", "string",
+                    "description", "Output format for the requested function",
+                    "enum", List.of("decompiler", "disassembly", "pcode")
+                ),
+                "raw", Map.of(
+                    "type", "boolean",
+                    "description", "Optional: Only affects format 'pcode' (raw pcode ops vs grouped by basic blocks)",
+                    "default", false
+                )
             ),
             List.of("function", "format"), null, null, null);
     }

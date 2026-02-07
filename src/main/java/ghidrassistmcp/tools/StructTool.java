@@ -112,7 +112,11 @@ public class StructTool implements McpTool {
     @Override
     public McpSchema.JsonSchema getInputSchema() {
         Map<String, Object> props = new HashMap<>();
-        props.put("action", new McpSchema.JsonSchema("string", null, null, null, null, null));
+        props.put("action", Map.of(
+            "type", "string",
+            "description", "Structure operation to perform",
+            "enum", List.of("create", "modify", "auto_create", "rename_field", "field_xrefs")
+        ));
         props.put("name", new McpSchema.JsonSchema("string", null, null, null, null, null));
         props.put("size", new McpSchema.JsonSchema("integer", null, null, null, null, null));
         props.put("c_definition", new McpSchema.JsonSchema("string", null, null, null, null, null));

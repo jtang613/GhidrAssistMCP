@@ -134,17 +134,16 @@ GhidrAssistMCP provides 32 tools organized into categories. Several tools use an
 | `get_call_graph` | Get call graph for a function (callers and callees) |
 | `get_basic_blocks` | Get basic block information for a function |
 
-### Consolidated Action-Based Tools
+### Consolidated Tools
 
-These tools provide multiple operations through an `action` parameter:
+These tools bundle related operations behind a discriminator parameter (e.g., `action`, `target`, `target_type`, or `format`).
 
 #### `get_code` - Code Retrieval Tool
 
-| Action | Description |
-| ------ | ----------- |
-| `decompiler` | Decompile function to C-like pseudocode |
-| `disassembly` | Get assembly disassembly |
-| `pcode` | Get P-code intermediate representation |
+| Parameter | Values | Description |
+| --------- | ------ | ----------- |
+| `format` | `decompiler`, `disassembly`, `pcode` | Output format |
+| `raw` | boolean | Only affects `format: "pcode"` (raw pcode ops vs grouped by basic blocks) |
 
 #### `class` - Class Operations Tool
 
@@ -158,7 +157,7 @@ These tools provide multiple operations through an `action` parameter:
 | Parameter | Description |
 | --------- | ----------- |
 | `address` | Find all references to/from a specific address |
-| `function_name` | Find all cross-references for a function |
+| `function` | Find all cross-references for a function |
 
 #### `struct` - Structure Operations Tool
 
@@ -172,18 +171,16 @@ These tools provide multiple operations through an `action` parameter:
 
 #### `rename_symbol` - Symbol Renaming Tool
 
-| Action | Description |
-| ------ | ----------- |
-| `function` | Rename a function |
-| `data` | Rename a data label |
-| `variable` | Rename a local variable or parameter |
+| Parameter | Values | Description |
+| --------- | ------ | ----------- |
+| `target_type` | `function`, `data`, `variable` | What kind of symbol to rename |
 
 #### `set_comment` - Comment Tool
 
-| Action | Description |
-| ------ | ----------- |
-| `decompiler` | Set/modify decompiler (pseudocode) comment |
-| `disassembly` | Set/modify disassembly (assembly) comment |
+| Parameter | Values | Description |
+| --------- | ------ | ----------- |
+| `target` | `function`, `address` | Where to set the comment |
+| `comment_type` | `eol`, `pre`, `post`, `plate`, `repeatable` | Comment type for `target: "address"` (default `eol`) |
 
 #### `bookmarks` - Bookmark Management Tool
 
@@ -271,7 +268,7 @@ Pre-built prompts for common analysis tasks:
 }
 ```
 
-### Decompile Function (Action-Based)
+### Decompile Function (`get_code`)
 
 ```json
 {
@@ -279,8 +276,8 @@ Pre-built prompts for common analysis tasks:
   "params": {
     "name": "get_code",
     "arguments": {
-      "action": "decompiler",
-      "function_name": "main"
+      "function": "main",
+      "format": "decompiler"
     }
   }
 }
@@ -476,14 +473,14 @@ GhidrAssistMCP/
 
 ### Tool Design Patterns
 
-**Action-Based Tools**: Related operations are consolidated into single tools with an `action` parameter:
+**Consolidated Tools**: Related operations are consolidated into single tools with a discriminator parameter:
 
-- `get_code`: decompiler, disassembly, pcode
-- `class`: list, get_info
-- `struct`: create, modify, auto_create, rename_field, field_xrefs
-- `rename_symbol`: function, data, variable
-- `set_comment`: decompiler, disassembly
-- `bookmarks`: list, add, delete
+- `get_code`: `format: decompiler|disassembly|pcode`
+- `class`: `action: list|get_info`
+- `struct`: `action: create|modify|auto_create|rename_field|field_xrefs`
+- `rename_symbol`: `target_type: function|data|variable`
+- `set_comment`: `target: function|address`
+- `bookmarks`: `action: list|add|delete`
 
 **Tool Interface Methods**:
 

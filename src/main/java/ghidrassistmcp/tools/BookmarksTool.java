@@ -45,11 +45,27 @@ public class BookmarksTool implements McpTool {
     public McpSchema.JsonSchema getInputSchema() {
         return new McpSchema.JsonSchema("object",
             Map.of(
-                "action", new McpSchema.JsonSchema("string", null, null, null, null, null),
-                "address", new McpSchema.JsonSchema("string", null, null, null, null, null),
-                "category", new McpSchema.JsonSchema("string", null, null, null, null, null),
-                "comment", new McpSchema.JsonSchema("string", null, null, null, null, null),
-                "type", new McpSchema.JsonSchema("string", null, null, null, null, null)
+                "action", Map.of(
+                    "type", "string",
+                    "description", "Bookmark operation to perform",
+                    "enum", List.of("list", "add", "delete")
+                ),
+                "address", Map.of(
+                    "type", "string",
+                    "description", "Address string (required for add/delete)"
+                ),
+                "category", Map.of(
+                    "type", "string",
+                    "description", "Optional: category to filter by (list) or set (add)"
+                ),
+                "comment", Map.of(
+                    "type", "string",
+                    "description", "Optional: comment text (add)"
+                ),
+                "type", Map.of(
+                    "type", "string",
+                    "description", "Optional: bookmark type string (defaults to NOTE for add; for delete, if omitted deletes all bookmark types at address)"
+                )
             ),
             List.of("action"), null, null, null);
     }
