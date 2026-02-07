@@ -58,3 +58,123 @@ dependencies {
 
 // Exclude additional files from the built extension
 // Ex: buildExtension.exclude '.idea/**'
+
+/**
+ * Convenience tasks for local development:
+ * - `gradle buildExtension` creates the extension zip in `dist/`
+ * - `gradle installExtension` unzips that extension into your Ghidra *user* Extensions folder
+ *
+ * This mirrors the Ghidra UI "Install Extensions" flow, which ultimately extracts into:
+ * - Windows: %APPDATA%\ghidra\ghidra_<version>_<release>\Extensions\<ExtensionName>
+ * - Linux/macOS: ~/.ghidra/ghidra_<version>_<release>/Extensions/<ExtensionName>
+ *
+ * You can override the destination Extensions folder via:
+ * - Gradle property: -PGHIDRA_USER_EXTENSIONS_DIR="C:\path\to\... \Extensions"
+ * - Env var: GHIDRA_USER_EXTENSIONS_DIR
+ */
+def getGhidraUserExtensionsDir = {
+	if (project.hasProperty("GHIDRA_USER_EXTENSIONS_DIR")) {
+		return file(project.property("GHIDRA_USER_EXTENSIONS_DIR"))
+	}
+	if (System.env.GHIDRA_USER_EXTENSIONS_DIR) {
+		return file(System.env.GHIDRA_USER_EXTENSIONS_DIR)
+	}
+
+	def osName = (System.getProperty("os.name") ?: "").toLowerCase(Locale.ROOT)
+	def ghidraUserProfileDirName = "${DISTRO_PREFIX}_${RELEASE_NAME}"
+
+	if (osName.contains("windows")) {
+		def appData = System.getenv("APPDATA")
+		if (appData) {
+			return file("${appData}/ghidra/${ghidraUserProfileDirName}/Extensions")
+		}
+	}
+
+	return file("${System.getProperty('user.home')}/.ghidra/${ghidraUserProfileDirName}/Extensions")
+}
+
+/**
+ * Where to copy the built extension zip for a given Ghidra install.
+ *
+ * Default:
+ *   <GHIDRA_INSTALL_DIR>/Extensions/Ghidra
+ *
+ * Override via:
+ *   - Gradle property: -PGHIDRA_EXTENSIONS_DROP_DIR="D:\path\to\Extensions\Ghidra"
+ *   - Env var: GHIDRA_EXTENSIONS_DROP_DIR
+ */
+def getGhidraInstallExtensionsZipDir = {
+	if (project.hasProperty("GHIDRA_EXTENSIONS_DROP_DIR")) {
+		return file(project.property("GHIDRA_EXTENSIONS_DROP_DIR"))
+	}
+	if (System.env.GHIDRA_EXTENSIONS_DROP_DIR) {
+		return file(System.env.GHIDRA_EXTENSIONS_DROP_DIR)
+	}
+	return file("${ghidraInstallDir}/Extensions/Ghidra")
+}
+
+def buildZipProvider = tasks.named('buildExtension', Zip).flatMap { it.archiveFile }
+
+tasks.register('copyExtensionZip', Copy) {
+	group = "Ghidra"
+	description = "Copy the built extension zip into the Ghidra install Extensions/Ghidra folder"
+
+	dependsOn tasks.named('buildExtension')
+
+	from(buildZipProvider)
+	into { getGhidraInstallExtensionsZipDir() }
+
+	doFirst {
+		def destDir = getGhidraInstallExtensionsZipDir()
+		destDir.mkdirs()
+
+		// Remove older copies to avoid confusion in Ghidra's UI.
+		delete fileTree(destDir) {
+			include "*_${project.name}.zip"
+		}
+	}
+}
+
+tasks.register('extractExtension', Copy) {
+	group = "Ghidra"
+	description = "Extract the built extension into Ghidra's user Extensions folder"
+
+	dependsOn tasks.named('buildExtension')
+
+	from {
+		zipTree(buildZipProvider.get().asFile)
+	}
+	into { getGhidraUserExtensionsDir() }
+
+	doFirst {
+		def extensionsDir = getGhidraUserExtensionsDir()
+		extensionsDir.mkdirs()
+
+		// Remove existing extracted dir first so deleted files don't persist across upgrades.
+		delete new File(extensionsDir, project.name)
+	}
+}
+
+tasks.register('installExtension') {
+	group = "Ghidra"
+	description = "Copy the zip to the Ghidra install and extract into the user Extensions folder"
+	dependsOn tasks.named('copyExtensionZip'), tasks.named('extractExtension')
+}
+
+tasks.register('uninstallExtension') {
+	group = "Ghidra"
+	description = "Delete the extracted extension and remove copied extension zip(s)"
+
+	doLast {
+		def extensionsDir = getGhidraUserExtensionsDir()
+		def installedDir = new File(extensionsDir, project.name)
+		delete installedDir
+
+		def zipDropDir = getGhidraInstallExtensionsZipDir()
+		if (zipDropDir.exists()) {
+			delete fileTree(zipDropDir) {
+				include "*_${project.name}.zip"
+			}
+		}
+	}
+}

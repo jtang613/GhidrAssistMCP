@@ -32,6 +32,7 @@ import ghidrassistmcp.tasks.McpTaskManager;
 import ghidrassistmcp.tools.BookmarksTool;
 import ghidrassistmcp.tools.CancelTaskTool;
 import ghidrassistmcp.tools.ClassTool;
+import ghidrassistmcp.tools.DeleteDataTypeTool;
 import ghidrassistmcp.tools.GetBasicBlocksTool;
 import ghidrassistmcp.tools.GetCallGraphTool;
 import ghidrassistmcp.tools.GetCodeTool;
@@ -47,13 +48,13 @@ import ghidrassistmcp.tools.ListExportsTool;
 import ghidrassistmcp.tools.ListProgramsTool;
 import ghidrassistmcp.tools.ListFunctionsTool;
 import ghidrassistmcp.tools.ListImportsTool;
-import ghidrassistmcp.tools.ListMethodsTool;
 import ghidrassistmcp.tools.ListNamespacesTool;
 import ghidrassistmcp.tools.ListRelocationsTool;
 import ghidrassistmcp.tools.ListSegmentsTool;
 import ghidrassistmcp.tools.ListStringsTool;
 import ghidrassistmcp.tools.ListTasksTool;
 import ghidrassistmcp.tools.ProgramInfoTool;
+import ghidrassistmcp.tools.RenameSymbolBatchTool;
 import ghidrassistmcp.tools.RenameSymbolTool;
 import ghidrassistmcp.tools.SearchBytesTool;
 import ghidrassistmcp.tools.SetCommentTool;
@@ -98,7 +99,6 @@ public class GhidrAssistMCPBackend implements McpBackend {
         registerTool(new ProgramInfoTool());
         registerTool(new ListFunctionsTool());
         registerTool(new GetFunctionInfoTool());
-        registerTool(new ListMethodsTool());
         registerTool(new ListSegmentsTool());
         registerTool(new ListImportsTool());
         registerTool(new ListExportsTool());
@@ -107,11 +107,12 @@ public class GhidrAssistMCPBackend implements McpBackend {
         registerTool(new GetHexdumpTool());
         registerTool(new GetCurrentFunctionTool());
         registerTool(new GetDataTypeTool());
+        registerTool(new DeleteDataTypeTool());
         registerTool(new ListDataTool());
         registerTool(new ListDataTypesTool());
         registerTool(new ListNamespacesTool());
         registerTool(new ListProgramsTool());
-        registerTool(new ClassTool());          // Consolidated class tool (list, get_info)
+        registerTool(new ClassTool());
         registerTool(new SetFunctionPrototypeTool());
         registerTool(new SetLocalVariableTypeTool());
         registerTool(new SetDataTypeTool());
@@ -122,11 +123,12 @@ public class GhidrAssistMCPBackend implements McpBackend {
         registerTool(new ListTasksTool());
 
         // Register consolidated and advanced tools
-        registerTool(new GetCodeTool());        // Consolidates decompile, disassemble, pcode
-        registerTool(new SetCommentTool());     // Consolidates decompiler and disassembly comments
-        registerTool(new RenameSymbolTool());   // Consolidates function, data, variable rename
-        registerTool(new XrefsTool());          // Consolidated xrefs with address and function support
-        registerTool(new StructTool());         // Consolidates create, modify, auto_create, rename_field
+        registerTool(new GetCodeTool());
+        registerTool(new SetCommentTool());
+        registerTool(new RenameSymbolTool());
+        registerTool(new RenameSymbolBatchTool());
+        registerTool(new XrefsTool());
+        registerTool(new StructTool());
         registerTool(new GetCallGraphTool());
         registerTool(new SearchBytesTool());
         registerTool(new BookmarksTool());

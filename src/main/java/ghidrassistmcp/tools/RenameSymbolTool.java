@@ -5,6 +5,8 @@
 package ghidrassistmcp.tools;
 
 import java.util.Iterator;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicReference;
@@ -60,10 +62,23 @@ public class RenameSymbolTool implements McpTool {
     public McpSchema.JsonSchema getInputSchema() {
         return new McpSchema.JsonSchema("object",
             Map.of(
-                "target_type", new McpSchema.JsonSchema("string", null, null, null, null, null),
-                "identifier", new McpSchema.JsonSchema("string", null, null, null, null, null),
-                "new_name", new McpSchema.JsonSchema("string", null, null, null, null, null),
-                "variable_name", new McpSchema.JsonSchema("string", null, null, null, null, null)
+                "target_type", Map.of(
+                    "type", "string",
+                    "description", "What kind of symbol to rename",
+                    "enum", List.of("function", "data", "variable")
+                ),
+                "identifier", Map.of(
+                    "type", "string",
+                    "description", "Target identifier (function: old function name; data: address string; variable: function name)"
+                ),
+                "new_name", Map.of(
+                    "type", "string",
+                    "description", "New symbol name (functions may be qualified like Namespace::Func)"
+                ),
+                "variable_name", Map.of(
+                    "type", "string",
+                    "description", "Required when target_type is 'variable': old local name to rename"
+                )
             ),
             List.of("target_type", "identifier", "new_name"), null, null, null);
     }
@@ -76,48 +91,238 @@ public class RenameSymbolTool implements McpTool {
                 .build();
         }
 
-        String targetType = (String) arguments.get("target_type");
-        String identifier = (String) arguments.get("identifier");
-        String newName = (String) arguments.get("new_name");
+        RenameSymbolCore.RenameResult result = RenameSymbolCore.renameOne(arguments, currentProgram);
+        return McpSchema.CallToolResult.builder()
+            .addTextContent(result.message)
+            .build();
+    }
+}
+
+/**
+ * Shared implementation for symbol renaming operations.
+ *
+ * Package-private so both `RenameSymbolTool` and a batch variant can share logic
+ * without duplicating implementations.
+ */
+final class RenameSymbolCore {
+
+    static final class RenameResult {
+        final boolean success;
+        final String message;
+
+        RenameResult(boolean success, String message) {
+            this.success = success;
+            this.message = message;
+        }
+    }
+
+    private RenameSymbolCore() {
+        // utility
+    }
+
+    static RenameResult renameOne(Map<String, Object> arguments, Program program) {
+        if (program == null) {
+            return new RenameResult(false, "No program currently loaded");
+        }
+
+        String targetType = getString(arguments, "target_type");
+        String identifier = getString(arguments, "identifier");
+        String newName = getString(arguments, "new_name");
 
         if (targetType == null || targetType.isEmpty()) {
-            return McpSchema.CallToolResult.builder()
-                .addTextContent("target_type parameter is required ('function', 'data', or 'variable')")
-                .build();
+            return new RenameResult(false, "target_type parameter is required ('function', 'data', or 'variable')");
         }
-
         if (identifier == null || identifier.isEmpty()) {
-            return McpSchema.CallToolResult.builder()
-                .addTextContent("identifier parameter is required")
-                .build();
+            return new RenameResult(false, "identifier parameter is required");
         }
-
         if (newName == null || newName.isEmpty()) {
-            return McpSchema.CallToolResult.builder()
-                .addTextContent("new_name parameter is required")
-                .build();
+            return new RenameResult(false, "new_name parameter is required");
         }
 
         targetType = targetType.toLowerCase();
 
-        // Dispatch to appropriate handler based on target type
         switch (targetType) {
             case "function":
-                return renameFunction(currentProgram, identifier, newName);
+                return renameFunction(program, identifier, newName);
             case "data":
-                return renameData(currentProgram, identifier, newName);
-            case "variable":
-                String variableName = (String) arguments.get("variable_name");
+                return renameData(program, identifier, newName);
+            case "variable": {
+                String variableName = getString(arguments, "variable_name");
                 if (variableName == null || variableName.isEmpty()) {
-                    return McpSchema.CallToolResult.builder()
-                        .addTextContent("variable_name parameter is required when target_type is 'variable'")
-                        .build();
+                    return new RenameResult(false, "variable_name parameter is required when target_type is 'variable'");
                 }
-                return renameVariable(currentProgram, identifier, variableName, newName);
+                return renameVariable(program, identifier, variableName, newName);
+            }
             default:
-                return McpSchema.CallToolResult.builder()
-                    .addTextContent("Invalid target_type. Use 'function', 'data', or 'variable'")
-                    .build();
+                return new RenameResult(false, "Invalid target_type. Use 'function', 'data', or 'variable'");
+        }
+    }
+
+    private static String getString(Map<String, Object> arguments, String key) {
+        Object v = arguments.get(key);
+        if (v instanceof String) {
+            return (String) v;
+        }
+        return null;
+    }
+
+    static final class VariableRenameRequest {
+        final int index;
+        final String oldName;
+        final String newName;
+
+        VariableRenameRequest(int index, String oldName, String newName) {
+            this.index = index;
+            this.oldName = oldName;
+            this.newName = newName;
+        }
+    }
+
+    /**
+     * Batch rename variables within a single function using one decompile pass.
+     *
+     * This avoids the "renumbering" issue that can occur when you re-decompile after each rename
+     * and rely on decompiler-generated names like uVar23/uVar24 being stable.
+     *
+     * Returns a result per request index (partial success supported).
+     */
+    static Map<Integer, RenameResult> renameVariablesBatch(Program program, String functionName,
+                                                          List<VariableRenameRequest> renames) {
+        Map<Integer, RenameResult> resultsByIndex = new HashMap<>();
+
+        if (program == null) {
+            for (VariableRenameRequest r : renames) {
+                resultsByIndex.put(r.index, new RenameResult(false, "No program currently loaded"));
+            }
+            return resultsByIndex;
+        }
+        if (functionName == null || functionName.isEmpty()) {
+            for (VariableRenameRequest r : renames) {
+                resultsByIndex.put(r.index, new RenameResult(false, "Function name is required for variable renames"));
+            }
+            return resultsByIndex;
+        }
+
+        Function function = findFunctionByName(program, functionName);
+        if (function == null) {
+            for (VariableRenameRequest r : renames) {
+                resultsByIndex.put(r.index, new RenameResult(false, "Function not found: " + functionName));
+            }
+            return resultsByIndex;
+        }
+
+        DecompInterface decompiler = new DecompInterface();
+        try {
+            decompiler.openProgram(program);
+            DecompileResults decompileResults = decompiler.decompileFunction(function, 30, TaskMonitor.DUMMY);
+
+            if (decompileResults.isTimedOut()) {
+                for (VariableRenameRequest r : renames) {
+                    resultsByIndex.put(r.index, new RenameResult(false,
+                        "Decompilation timed out for function: " + functionName));
+                }
+                return resultsByIndex;
+            }
+            if (!decompileResults.isValid()) {
+                for (VariableRenameRequest r : renames) {
+                    resultsByIndex.put(r.index, new RenameResult(false,
+                        "Decompilation error for function " + functionName + ": " + decompileResults.getErrorMessage()));
+                }
+                return resultsByIndex;
+            }
+
+            HighFunction highFunction = decompileResults.getHighFunction();
+            if (highFunction == null) {
+                for (VariableRenameRequest r : renames) {
+                    resultsByIndex.put(r.index, new RenameResult(false,
+                        "Could not get high function for: " + functionName));
+                }
+                return resultsByIndex;
+            }
+
+            Map<String, HighSymbol> symbolsByName = new HashMap<>();
+            Iterator<HighSymbol> symbols = highFunction.getLocalSymbolMap().getSymbols();
+            while (symbols.hasNext()) {
+                HighSymbol s = symbols.next();
+                // First one wins; duplicate names are rare but possible.
+                symbolsByName.putIfAbsent(s.getName(), s);
+            }
+
+            // Resolve all symbols up-front from the single decompile pass.
+            final List<ResolvedVarRename> toApply = new ArrayList<>();
+            for (VariableRenameRequest req : renames) {
+                if (req.oldName == null || req.oldName.isEmpty()) {
+                    resultsByIndex.put(req.index, new RenameResult(false, "variable_name is required"));
+                    continue;
+                }
+                if (req.newName == null || req.newName.isEmpty()) {
+                    resultsByIndex.put(req.index, new RenameResult(false, "new_name parameter is required"));
+                    continue;
+                }
+
+                HighSymbol sym = symbolsByName.get(req.oldName);
+                if (sym == null) {
+                    resultsByIndex.put(req.index, new RenameResult(false,
+                        "Variable '" + req.oldName + "' not found in function '" + functionName + "'"));
+                    continue;
+                }
+                toApply.add(new ResolvedVarRename(req.index, req.oldName, req.newName, sym));
+            }
+
+            // Apply on EDT. Use per-rename transactions so partial success is preserved.
+            try {
+                SwingUtilities.invokeAndWait(() -> {
+                    for (ResolvedVarRename r : toApply) {
+                        int txId = program.startTransaction("Rename Variable");
+                        try {
+                            HighFunctionDBUtil.updateDBVariable(r.symbol, r.newName, null, SourceType.USER_DEFINED);
+                            program.endTransaction(txId, true);
+                            resultsByIndex.put(r.index, new RenameResult(true,
+                                "Successfully renamed variable '" + r.oldName + "' to '" + r.newName +
+                                    "' in function '" + functionName + "'"));
+                        } catch (DuplicateNameException e) {
+                            program.endTransaction(txId, false);
+                            resultsByIndex.put(r.index, new RenameResult(false,
+                                "Variable with name '" + r.newName + "' already exists in function '" + functionName + "'"));
+                        } catch (InvalidInputException e) {
+                            program.endTransaction(txId, false);
+                            resultsByIndex.put(r.index, new RenameResult(false, "Invalid variable name: " + r.newName));
+                        } catch (Exception e) {
+                            program.endTransaction(txId, false);
+                            resultsByIndex.put(r.index, new RenameResult(false, "Error renaming variable: " + e.getMessage()));
+                        }
+                    }
+                });
+            } catch (Exception e) {
+                // If EDT dispatch fails, mark anything that wasn't already resolved as a failure.
+                for (ResolvedVarRename r : toApply) {
+                    resultsByIndex.putIfAbsent(r.index, new RenameResult(false,
+                        "Error executing rename on EDT: " + e.getMessage()));
+                }
+            }
+
+            return resultsByIndex;
+        } catch (Exception e) {
+            for (VariableRenameRequest r : renames) {
+                resultsByIndex.put(r.index, new RenameResult(false, "Error renaming variable: " + e.getMessage()));
+            }
+            return resultsByIndex;
+        } finally {
+            decompiler.dispose();
+        }
+    }
+
+    private static final class ResolvedVarRename {
+        final int index;
+        final String oldName;
+        final String newName;
+        final HighSymbol symbol;
+
+        ResolvedVarRename(int index, String oldName, String newName, HighSymbol symbol) {
+            this.index = index;
+            this.oldName = oldName;
+            this.newName = newName;
+            this.symbol = symbol;
         }
     }
 
@@ -129,31 +334,23 @@ public class RenameSymbolTool implements McpTool {
      * Note: Symbol operations must run on the Swing EDT to avoid race conditions with
      * Ghidra's Symbol Tree UI updates.
      */
-    private McpSchema.CallToolResult renameFunction(Program program, String oldName, String newName) {
-        // Find the function by old name
+    private static RenameResult renameFunction(Program program, String oldName, String newName) {
         Function function = findFunctionByName(program, oldName);
         if (function == null) {
-            return McpSchema.CallToolResult.builder()
-                .addTextContent("Function not found: " + oldName)
-                .build();
+            return new RenameResult(false, "Function not found: " + oldName);
         }
 
-        // Use AtomicReference to capture result from EDT execution
-        AtomicReference<McpSchema.CallToolResult> resultRef = new AtomicReference<>();
+        AtomicReference<RenameResult> resultRef = new AtomicReference<>();
         final Function targetFunction = function;
 
         try {
-            // Run symbol modifications on the Swing EDT to avoid race conditions
-            // with Ghidra's Symbol Tree UI updates
             SwingUtilities.invokeAndWait(() -> {
                 int transactionID = program.startTransaction("Rename Function");
                 try {
                     Object[] parsed = parseAndCreateNamespace(program, newName);
                     if (parsed == null) {
                         program.endTransaction(transactionID, false);
-                        resultRef.set(McpSchema.CallToolResult.builder()
-                            .addTextContent("Invalid qualified name format: " + newName)
-                            .build());
+                        resultRef.set(new RenameResult(false, "Invalid qualified name format: " + newName));
                         return;
                     }
 
@@ -165,42 +362,34 @@ public class RenameSymbolTool implements McpTool {
                     if (existingFunction != null && existingFunction != targetFunction &&
                         existingFunction.getParentNamespace().equals(targetNamespace)) {
                         program.endTransaction(transactionID, false);
-                        resultRef.set(McpSchema.CallToolResult.builder()
-                            .addTextContent("Function with name '" + simpleName + "' already exists in namespace '" +
-                                          targetNamespace.getName(true) + "'")
-                            .build());
+                        resultRef.set(new RenameResult(false,
+                            "Function with name '" + simpleName + "' already exists in namespace '" +
+                                targetNamespace.getName(true) + "'"));
                         return;
                     }
 
-                    // Set the namespace if it's not global (i.e., we have a qualified name)
                     if (!targetNamespace.isGlobal()) {
                         targetFunction.setParentNamespace(targetNamespace);
                     }
 
-                    // Set the function name
                     targetFunction.setName(simpleName, SourceType.USER_DEFINED);
-
                     program.endTransaction(transactionID, true);
 
-                    // Build success message
-                    String resultName = targetNamespace.isGlobal() ? simpleName : targetNamespace.getName(true) + "::" + simpleName;
-                    resultRef.set(McpSchema.CallToolResult.builder()
-                        .addTextContent("Successfully renamed function '" + oldName + "' to '" + resultName + "'")
-                        .build());
+                    String resultName = targetNamespace.isGlobal()
+                        ? simpleName
+                        : targetNamespace.getName(true) + "::" + simpleName;
+                    resultRef.set(new RenameResult(true,
+                        "Successfully renamed function '" + oldName + "' to '" + resultName + "'"));
                 } catch (Exception e) {
                     program.endTransaction(transactionID, false);
-                    resultRef.set(McpSchema.CallToolResult.builder()
-                        .addTextContent("Error renaming function: " + e.getMessage())
-                        .build());
+                    resultRef.set(new RenameResult(false, "Error renaming function: " + e.getMessage()));
                 }
             });
         } catch (Exception e) {
-            return McpSchema.CallToolResult.builder()
-                .addTextContent("Error executing rename on EDT: " + e.getMessage())
-                .build();
+            return new RenameResult(false, "Error executing rename on EDT: " + e.getMessage());
         }
 
-        return resultRef.get();
+        return resultRef.get() != null ? resultRef.get() : new RenameResult(false, "Unknown error renaming function");
     }
 
     /**
@@ -209,117 +398,92 @@ public class RenameSymbolTool implements McpTool {
      * Note: Symbol operations must run on the Swing EDT to avoid race conditions with
      * Ghidra's Symbol Tree UI updates.
      */
-    private McpSchema.CallToolResult renameData(Program program, String addressStr, String newName) {
-        // Parse the address
+    private static RenameResult renameData(Program program, String addressStr, String newName) {
         Address address;
         try {
             address = program.getAddressFactory().getAddress(addressStr);
             if (address == null) {
-                return McpSchema.CallToolResult.builder()
-                    .addTextContent("Invalid address: " + addressStr)
-                    .build();
+                return new RenameResult(false, "Invalid address: " + addressStr);
             }
         } catch (Exception e) {
-            return McpSchema.CallToolResult.builder()
-                .addTextContent("Invalid address format: " + addressStr)
-                .build();
+            return new RenameResult(false, "Invalid address format: " + addressStr);
         }
 
-        // Use AtomicReference to capture result from EDT execution
-        AtomicReference<McpSchema.CallToolResult> resultRef = new AtomicReference<>();
+        AtomicReference<RenameResult> resultRef = new AtomicReference<>();
         final Address targetAddress = address;
 
         try {
-            // Run symbol modifications on the Swing EDT to avoid race conditions
-            // with Ghidra's Symbol Tree UI updates
             SwingUtilities.invokeAndWait(() -> {
                 int transactionID = program.startTransaction("Rename Data");
                 try {
                     Data data = program.getListing().getDataAt(targetAddress);
                     if (data != null) {
-                        // Rename the data symbol
                         Symbol primarySymbol = data.getPrimarySymbol();
                         if (primarySymbol != null) {
                             String oldName = primarySymbol.getName();
                             try {
                                 primarySymbol.setName(newName, SourceType.USER_DEFINED);
                                 program.endTransaction(transactionID, true);
-                                resultRef.set(McpSchema.CallToolResult.builder()
-                                    .addTextContent("Successfully renamed data at " + addressStr +
-                                                  " from '" + oldName + "' to '" + newName + "'")
-                                    .build());
+                                resultRef.set(new RenameResult(true,
+                                    "Successfully renamed data at " + addressStr +
+                                        " from '" + oldName + "' to '" + newName + "'"));
                                 return;
                             } catch (DuplicateNameException e) {
                                 program.endTransaction(transactionID, false);
-                                resultRef.set(McpSchema.CallToolResult.builder()
-                                    .addTextContent("Symbol with name '" + newName + "' already exists")
-                                    .build());
+                                resultRef.set(new RenameResult(false,
+                                    "Symbol with name '" + newName + "' already exists"));
                                 return;
                             } catch (InvalidInputException e) {
                                 program.endTransaction(transactionID, false);
-                                resultRef.set(McpSchema.CallToolResult.builder()
-                                    .addTextContent("Invalid symbol name: " + newName)
-                                    .build());
+                                resultRef.set(new RenameResult(false, "Invalid symbol name: " + newName));
                                 return;
                             }
                         }
-                        // Create a new symbol for the data
+
                         program.getSymbolTable().createLabel(targetAddress, newName, SourceType.USER_DEFINED);
                         program.endTransaction(transactionID, true);
-                        resultRef.set(McpSchema.CallToolResult.builder()
-                            .addTextContent("Successfully created label '" + newName + "' at " + addressStr)
-                            .build());
+                        resultRef.set(new RenameResult(true,
+                            "Successfully created label '" + newName + "' at " + addressStr));
                         return;
                     }
 
-                    // No data at address, try to find any symbol and rename it
                     Symbol[] symbols = program.getSymbolTable().getSymbols(targetAddress);
                     if (symbols.length > 0) {
-                        Symbol symbol = symbols[0]; // Use first symbol
+                        Symbol symbol = symbols[0];
                         String oldName = symbol.getName();
                         try {
                             symbol.setName(newName, SourceType.USER_DEFINED);
                             program.endTransaction(transactionID, true);
-                            resultRef.set(McpSchema.CallToolResult.builder()
-                                .addTextContent("Successfully renamed symbol at " + addressStr +
-                                              " from '" + oldName + "' to '" + newName + "'")
-                                .build());
+                            resultRef.set(new RenameResult(true,
+                                "Successfully renamed symbol at " + addressStr +
+                                    " from '" + oldName + "' to '" + newName + "'"));
                             return;
                         } catch (DuplicateNameException e) {
                             program.endTransaction(transactionID, false);
-                            resultRef.set(McpSchema.CallToolResult.builder()
-                                .addTextContent("Symbol with name '" + newName + "' already exists")
-                                .build());
+                            resultRef.set(new RenameResult(false,
+                                "Symbol with name '" + newName + "' already exists"));
                             return;
                         } catch (InvalidInputException e) {
                             program.endTransaction(transactionID, false);
-                            resultRef.set(McpSchema.CallToolResult.builder()
-                                .addTextContent("Invalid symbol name: " + newName)
-                                .build());
+                            resultRef.set(new RenameResult(false, "Invalid symbol name: " + newName));
                             return;
                         }
                     }
 
-                    // Create a new label at the address
                     program.getSymbolTable().createLabel(targetAddress, newName, SourceType.USER_DEFINED);
                     program.endTransaction(transactionID, true);
-                    resultRef.set(McpSchema.CallToolResult.builder()
-                        .addTextContent("Successfully created label '" + newName + "' at " + addressStr)
-                        .build());
+                    resultRef.set(new RenameResult(true,
+                        "Successfully created label '" + newName + "' at " + addressStr));
                 } catch (Exception e) {
                     program.endTransaction(transactionID, false);
-                    resultRef.set(McpSchema.CallToolResult.builder()
-                        .addTextContent("Error creating label: " + e.getMessage())
-                        .build());
+                    resultRef.set(new RenameResult(false, "Error creating label: " + e.getMessage()));
                 }
             });
         } catch (Exception e) {
-            return McpSchema.CallToolResult.builder()
-                .addTextContent("Error executing rename on EDT: " + e.getMessage())
-                .build();
+            return new RenameResult(false, "Error executing rename on EDT: " + e.getMessage());
         }
 
-        return resultRef.get();
+        return resultRef.get() != null ? resultRef.get() : new RenameResult(false, "Unknown error renaming data");
     }
 
     /**
@@ -328,46 +492,33 @@ public class RenameSymbolTool implements McpTool {
      * Note: Symbol operations must run on the Swing EDT to avoid race conditions with
      * Ghidra's Symbol Tree UI updates.
      */
-    private McpSchema.CallToolResult renameVariable(Program program, String functionName,
-                                                     String oldVariableName, String newVariableName) {
-        // Find the function
+    private static RenameResult renameVariable(Program program, String functionName,
+                                              String oldVariableName, String newVariableName) {
         Function function = findFunctionByName(program, functionName);
         if (function == null) {
-            return McpSchema.CallToolResult.builder()
-                .addTextContent("Function not found: " + functionName)
-                .build();
+            return new RenameResult(false, "Function not found: " + functionName);
         }
 
-        // Get the high function and rename the variable
         DecompInterface decompiler = new DecompInterface();
         try {
             decompiler.openProgram(program);
-
             DecompileResults results = decompiler.decompileFunction(function, 30, TaskMonitor.DUMMY);
 
             if (results.isTimedOut()) {
-                return McpSchema.CallToolResult.builder()
-                    .addTextContent("Decompilation timed out for function: " + functionName)
-                    .build();
+                return new RenameResult(false, "Decompilation timed out for function: " + functionName);
             }
-
-            if (results.isValid() == false) {
-                return McpSchema.CallToolResult.builder()
-                    .addTextContent("Decompilation error for function " + functionName + ": " + results.getErrorMessage())
-                    .build();
+            if (!results.isValid()) {
+                return new RenameResult(false,
+                    "Decompilation error for function " + functionName + ": " + results.getErrorMessage());
             }
 
             HighFunction highFunction = results.getHighFunction();
             if (highFunction == null) {
-                return McpSchema.CallToolResult.builder()
-                    .addTextContent("Could not get high function for: " + functionName)
-                    .build();
+                return new RenameResult(false, "Could not get high function for: " + functionName);
             }
 
-            // Find the variable
             HighSymbol targetSymbol = null;
             Iterator<HighSymbol> symbols = highFunction.getLocalSymbolMap().getSymbols();
-
             while (symbols.hasNext()) {
                 HighSymbol symbol = symbols.next();
                 if (symbol.getName().equals(oldVariableName)) {
@@ -377,61 +528,45 @@ public class RenameSymbolTool implements McpTool {
             }
 
             if (targetSymbol == null) {
-                return McpSchema.CallToolResult.builder()
-                    .addTextContent("Variable '" + oldVariableName + "' not found in function '" + functionName + "'")
-                    .build();
+                return new RenameResult(false,
+                    "Variable '" + oldVariableName + "' not found in function '" + functionName + "'");
             }
 
-            // Use AtomicReference to capture result from EDT execution
-            AtomicReference<McpSchema.CallToolResult> resultRef = new AtomicReference<>();
+            AtomicReference<RenameResult> resultRef = new AtomicReference<>();
             final HighSymbol symbolToRename = targetSymbol;
 
-            // Rename the variable on the EDT within a transaction
             SwingUtilities.invokeAndWait(() -> {
                 int transactionID = program.startTransaction("Rename Variable");
                 try {
                     HighFunctionDBUtil.updateDBVariable(symbolToRename, newVariableName, null, SourceType.USER_DEFINED);
-
                     program.endTransaction(transactionID, true);
-                    resultRef.set(McpSchema.CallToolResult.builder()
-                        .addTextContent("Successfully renamed variable '" + oldVariableName + "' to '" + newVariableName + "' in function '" + functionName + "'")
-                        .build());
+                    resultRef.set(new RenameResult(true,
+                        "Successfully renamed variable '" + oldVariableName + "' to '" + newVariableName +
+                            "' in function '" + functionName + "'"));
                 } catch (DuplicateNameException e) {
                     program.endTransaction(transactionID, false);
-                    resultRef.set(McpSchema.CallToolResult.builder()
-                        .addTextContent("Variable with name '" + newVariableName + "' already exists in function '" + functionName + "'")
-                        .build());
+                    resultRef.set(new RenameResult(false,
+                        "Variable with name '" + newVariableName + "' already exists in function '" + functionName + "'"));
                 } catch (InvalidInputException e) {
                     program.endTransaction(transactionID, false);
-                    resultRef.set(McpSchema.CallToolResult.builder()
-                        .addTextContent("Invalid variable name: " + newVariableName)
-                        .build());
+                    resultRef.set(new RenameResult(false, "Invalid variable name: " + newVariableName));
                 } catch (Exception e) {
                     program.endTransaction(transactionID, false);
-                    resultRef.set(McpSchema.CallToolResult.builder()
-                        .addTextContent("Error renaming variable: " + e.getMessage())
-                        .build());
+                    resultRef.set(new RenameResult(false, "Error renaming variable: " + e.getMessage()));
                 }
             });
 
-            return resultRef.get();
-
+            return resultRef.get() != null ? resultRef.get() : new RenameResult(false, "Unknown error renaming variable");
         } catch (Exception e) {
-            return McpSchema.CallToolResult.builder()
-                .addTextContent("Error renaming variable: " + e.getMessage())
-                .build();
+            return new RenameResult(false, "Error renaming variable: " + e.getMessage());
         } finally {
             decompiler.dispose();
         }
     }
 
-    /**
-     * Find a function by name.
-     */
-    private Function findFunctionByName(Program program, String functionName) {
+    private static Function findFunctionByName(Program program, String functionName) {
         var functionManager = program.getFunctionManager();
         var functions = functionManager.getFunctions(true);
-
         for (Function function : functions) {
             if (function.getName().equals(functionName)) {
                 return function;
@@ -447,21 +582,17 @@ public class RenameSymbolTool implements McpTool {
      *
      * @return Object[] with [Namespace, String simpleName], or null on error
      */
-    private Object[] parseAndCreateNamespace(Program program, String qualifiedName) {
+    private static Object[] parseAndCreateNamespace(Program program, String qualifiedName) {
         if (!qualifiedName.contains("::")) {
-            // No namespace, return global namespace and the name as-is
             return new Object[] { program.getGlobalNamespace(), qualifiedName };
         }
 
         String[] parts = qualifiedName.split("::");
         if (parts.length < 2) {
-            return null; // Invalid format
+            return null;
         }
 
-        // The last part is the method/symbol name
         String simpleName = parts[parts.length - 1];
-
-        // Everything before is the namespace hierarchy
         SymbolTable symbolTable = program.getSymbolTable();
         Namespace currentNamespace = program.getGlobalNamespace();
 
@@ -472,20 +603,17 @@ public class RenameSymbolTool implements McpTool {
             }
 
             try {
-                // Try to find existing namespace first
                 Namespace existingNs = symbolTable.getNamespace(nsName, currentNamespace);
                 if (existingNs != null) {
                     currentNamespace = existingNs;
                 } else {
-                    // Create as a class namespace (appropriate for C++ class::method pattern)
                     currentNamespace = symbolTable.createClass(currentNamespace, nsName, SourceType.USER_DEFINED);
                 }
             } catch (Exception e) {
-                // If class creation fails, try creating as a regular namespace
                 try {
                     currentNamespace = symbolTable.createNameSpace(currentNamespace, nsName, SourceType.USER_DEFINED);
                 } catch (Exception e2) {
-                    return null; // Failed to create namespace
+                    return null;
                 }
             }
         }

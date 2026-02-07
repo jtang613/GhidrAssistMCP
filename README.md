@@ -10,7 +10,7 @@ GhidrAssistMCP bridges the gap between AI-powered analysis tools and Ghidra's co
 
 - **MCP Server Integration**: Full Model Context Protocol server implementation using official SDK
 - **Dual HTTP Transports**: Supports SSE and Streamable HTTP transports for maximum client compatibility
-- **33 Built-in Tools**: Comprehensive set of analysis tools with action-based consolidation for cleaner APIs
+- **34 Built-in Tools**: Comprehensive set of analysis tools with action-based consolidation for cleaner APIs
 - **5 MCP Resources**: Static data resources for program info, functions, strings, imports, and exports
 - **5 MCP Prompts**: Pre-built analysis prompts for common reverse engineering tasks
 - **Result Caching**: Intelligent caching system to improve performance for repeated queries
@@ -30,7 +30,6 @@ Shameless self-promotion: [GhidrAssist](https://github.com/jtang613/GhidrAssist)
 
 ![Screenshot](https://github.com/jtang613/GhidrAssistMCP/blob/master/res/Screenshot1.png)
 ![Screenshot](https://github.com/jtang613/GhidrAssistMCP/blob/master/res/Screenshot2.png)
-
 
 ## Installation
 
@@ -58,30 +57,30 @@ Shameless self-promotion: [GhidrAssist](https://github.com/jtang613/GhidrAssist)
 ### Building from Source
 
 1. **Clone the repository**:
+
    ```bash
    git clone <repository-url>
    cd GhidrAssistMCP
    ```
 
-2. **Set Ghidra installation path**:
+2. **Point Gradle at your Ghidra install**:
+   - Set `GHIDRA_INSTALL_DIR` (environment variable), or pass `-PGHIDRA_INSTALL_DIR=<path>` when you run Gradle.
+
+3. **Build + install**:
+
+   Ensure Ghidra isn't running and run:
+
    ```bash
-   export GHIDRA_INSTALL_DIR=/path/to/your/ghidra/installation
+   gradle installExtension
    ```
 
-3. **Build the extension**:
-   ```bash
-   gradle buildExtension
-   ```
+   This copies the built ZIP into your Ghidra install (`[GHIDRA_INSTALL_DIR]/Extensions/Ghidra`) and extracts it into your Ghidra **user** Extensions folder (replacing any existing extracted copy).
 
-4. **Install the extension**:
-   - Copy the generated ZIP file from `dist/` directory
-   - In Ghidra: **File → Install Extensions → Add Extension**
-   - Select the ZIP file and restart Ghidra
+   If you need to override that location, pass `-PGHIDRA_USER_EXTENSIONS_DIR=<path>`.
 
-5. **Enable the plugin**:
-   - **File → Configure → Configure Plugins**
-   - Search for "GhidrAssistMCP"
-   - Check the box to enable the plugin
+4. **Restart / verify**:
+   - Restart Ghidra.
+   - If the plugin doesn't appear, enable it via **File → Configure → Configure Plugins** (search for "GhidrAssistMCP").
 
 ## Configuration
 
@@ -98,19 +97,20 @@ Shameless self-promotion: [GhidrAssist](https://github.com/jtang613/GhidrAssist)
 ### Tool Management
 
 The Configuration tab allows you to:
-- **View all available tools** (33 total)
+
+- **View all available tools** (34 total)
 - **Enable/disable individual tools** using checkboxes
 - **Save configuration** to persist across sessions
 - **Monitor tool status** in real-time
 
 ## Available Tools
 
-GhidrAssistMCP provides 33 tools organized into categories. Several tools use an action-based API pattern where a single tool provides multiple related operations.
+GhidrAssistMCP provides 34 tools organized into categories. Several tools use an action-based API pattern where a single tool provides multiple related operations.
 
 ### Program & Data Listing
 
 | Tool | Description |
-|------|-------------|
+| ---- | ----------- |
 | `get_program_info` | Get basic program information (name, architecture, compiler, etc.) |
 | `list_programs` | List all open programs across all CodeBrowser windows |
 | `list_functions` | List functions with optional pattern filtering and pagination |
@@ -121,13 +121,12 @@ GhidrAssistMCP provides 33 tools organized into categories. Several tools use an
 | `list_exports` | List exported functions/symbols |
 | `list_segments` | List memory segments |
 | `list_namespaces` | List namespaces in the program |
-| `list_methods` | List method definitions |
 | `list_relocations` | List relocation entries |
 
 ### Function & Code Analysis
 
 | Tool | Description |
-|------|-------------|
+| ---- | ----------- |
 | `get_function_info` | Get detailed function information (signature, variables, etc.) |
 | `get_current_function` | Get function at current cursor position |
 | `get_current_address` | Get current cursor address |
@@ -135,32 +134,35 @@ GhidrAssistMCP provides 33 tools organized into categories. Several tools use an
 | `get_call_graph` | Get call graph for a function (callers and callees) |
 | `get_basic_blocks` | Get basic block information for a function |
 
-### Consolidated Action-Based Tools
+### Consolidated Tools
 
-These tools provide multiple operations through an `action` parameter:
+These tools bundle related operations behind a discriminator parameter (e.g., `action`, `target`, `target_type`, or `format`).
 
 #### `get_code` - Code Retrieval Tool
-| Action | Description |
-|--------|-------------|
-| `decompiler` | Decompile function to C-like pseudocode |
-| `disassembly` | Get assembly disassembly |
-| `pcode` | Get P-code intermediate representation |
+
+| Parameter | Values | Description |
+| --------- | ------ | ----------- |
+| `format` | `decompiler`, `disassembly`, `pcode` | Output format |
+| `raw` | boolean | Only affects `format: "pcode"` (raw pcode ops vs grouped by basic blocks) |
 
 #### `class` - Class Operations Tool
+
 | Action | Description |
-|--------|-------------|
+| ------ | ----------- |
 | `list` | List classes with optional pattern filtering and pagination |
 | `get_info` | Get detailed class information (methods, fields, vtables, virtual functions) |
 
 #### `xrefs` - Cross-Reference Tool
+
 | Parameter | Description |
-|-----------|-------------|
+| --------- | ----------- |
 | `address` | Find all references to/from a specific address |
-| `function_name` | Find all cross-references for a function |
+| `function` | Find all cross-references for a function |
 
 #### `struct` - Structure Operations Tool
+
 | Action | Description |
-|--------|-------------|
+| ------ | ----------- |
 | `create` | Create a new structure from C definition or empty |
 | `modify` | Modify an existing structure with new C definition |
 | `auto_create` | Automatically create structure from variable usage patterns |
@@ -168,21 +170,22 @@ These tools provide multiple operations through an `action` parameter:
 | `field_xrefs` | Find cross-references to a specific struct field |
 
 #### `rename_symbol` - Symbol Renaming Tool
-| Action | Description |
-|--------|-------------|
-| `function` | Rename a function |
-| `data` | Rename a data label |
-| `variable` | Rename a local variable or parameter |
+
+| Parameter | Values | Description |
+| --------- | ------ | ----------- |
+| `target_type` | `function`, `data`, `variable` | What kind of symbol to rename |
 
 #### `set_comment` - Comment Tool
-| Action | Description |
-|--------|-------------|
-| `decompiler` | Set/modify decompiler (pseudocode) comment |
-| `disassembly` | Set/modify disassembly (assembly) comment |
+
+| Parameter | Values | Description |
+| --------- | ------ | ----------- |
+| `target` | `function`, `address` | Where to set the comment |
+| `comment_type` | `eol`, `pre`, `post`, `plate`, `repeatable` | Comment type for `target: "address"` (default `eol`) |
 
 #### `bookmarks` - Bookmark Management Tool
+
 | Action | Description |
-|--------|-------------|
+| ------ | ----------- |
 | `list` | List all bookmarks |
 | `add` | Add a new bookmark |
 | `delete` | Delete a bookmark |
@@ -190,8 +193,9 @@ These tools provide multiple operations through an `action` parameter:
 ### Type & Prototype Tools
 
 | Tool | Description |
-|------|-------------|
+| ----- | ----------- |
 | `get_data_type` | Get detailed data type information and structure definitions |
+| `delete_data_type` | Delete a data type by name (optionally scoped by `category`) |
 | `set_data_type` | Set data type at a specific address |
 | `set_function_prototype` | Set function signature/prototype |
 | `set_local_variable_type` | Set data type for local variables |
@@ -199,7 +203,7 @@ These tools provide multiple operations through an `action` parameter:
 ### Search Tools
 
 | Tool | Description |
-|------|-------------|
+| ----- | ----------- |
 | `search_bytes` | Search for byte patterns in memory |
 
 ### Async Task Management
@@ -207,7 +211,7 @@ These tools provide multiple operations through an `action` parameter:
 Long-running operations (decompilation, structure analysis, field xrefs) execute asynchronously:
 
 | Tool | Description |
-|------|-------------|
+| ---- | ----------- |
 | `get_task_status` | Check status and retrieve results of async tasks |
 | `cancel_task` | Cancel a running async task |
 | `list_tasks` | List all pending/running/completed tasks |
@@ -217,7 +221,7 @@ Long-running operations (decompilation, structure analysis, field xrefs) execute
 GhidrAssistMCP exposes 5 static resources that can be read by MCP clients:
 
 | Resource URI | Description |
-|--------------|-------------|
+| ------------ | ----------- |
 | `ghidra://program/info` | Basic program information |
 | `ghidra://program/functions` | List of all functions |
 | `ghidra://program/strings` | String references |
@@ -229,7 +233,7 @@ GhidrAssistMCP exposes 5 static resources that can be read by MCP clients:
 Pre-built prompts for common analysis tasks:
 
 | Prompt | Description |
-|--------|-------------|
+| ------ | ----------- |
 | `analyze_function` | Comprehensive function analysis prompt |
 | `identify_vulnerability` | Security vulnerability identification |
 | `document_function` | Generate function documentation |
@@ -265,7 +269,7 @@ Pre-built prompts for common analysis tasks:
 }
 ```
 
-### Decompile Function (Action-Based)
+### Decompile Function (`get_code`)
 
 ```json
 {
@@ -273,8 +277,8 @@ Pre-built prompts for common analysis tasks:
   "params": {
     "name": "get_code",
     "arguments": {
-      "action": "decompiler",
-      "function_name": "main"
+      "function": "main",
+      "format": "decompiler"
     }
   }
 }
@@ -343,6 +347,23 @@ Pre-built prompts for common analysis tasks:
 }
 ```
 
+### Delete a Data Type
+
+If multiple types share the same name across categories, pass `category` (or pass a full path in `name` starting with `/`).
+
+```json
+{
+  "method": "tools/call",
+  "params": {
+    "name": "delete_data_type",
+    "arguments": {
+      "name": "MyStruct",
+      "category": "/mytypes"
+    }
+  }
+}
+```
+
 ### Rename Function (Action-Based)
 
 ```json
@@ -401,7 +422,7 @@ GhidrAssistMCP uses a singleton architecture that enables seamless operation acr
 
 Every tool response includes a context header:
 
-```
+```plaintext
 [Context] Operating on: malware.exe | Active window: malware.exe
 
 <tool response content>
@@ -409,7 +430,7 @@ Every tool response includes a context header:
 
 or when targeting a different program:
 
-```
+```plaintext
 [Context] Operating on: lib.so | Active window: main.exe | Total open programs: 3
 
 <tool response content>
@@ -426,7 +447,7 @@ or when targeting a different program:
 
 ### Core Components
 
-```
+```plaintext
 GhidrAssistMCP/
 ├── GhidrAssistMCPManager     # Singleton coordinator for multi-window support
 │   ├── Tracks all CodeBrowser windows
@@ -461,7 +482,7 @@ GhidrAssistMCP/
 │   ├── DocumentFunctionPrompt.java
 │   ├── TraceDataFlowPrompt.java
 │   └── TraceNetworkDataPrompt.java
-└── tools/                    # MCP Tools (33 total)
+└── tools/                    # MCP Tools (34 total)
     ├── Consolidated action-based tools
     ├── Analysis tools
     ├── Modification tools
@@ -470,15 +491,17 @@ GhidrAssistMCP/
 
 ### Tool Design Patterns
 
-**Action-Based Tools**: Related operations are consolidated into single tools with an `action` parameter:
-- `get_code`: decompiler, disassembly, pcode
-- `class`: list, get_info
-- `struct`: create, modify, auto_create, rename_field, field_xrefs
-- `rename_symbol`: function, data, variable
-- `set_comment`: decompiler, disassembly
-- `bookmarks`: list, add, delete
+**Consolidated Tools**: Related operations are consolidated into single tools with a discriminator parameter:
+
+- `get_code`: `format: decompiler|disassembly|pcode`
+- `class`: `action: list|get_info`
+- `struct`: `action: create|modify|auto_create|rename_field|field_xrefs`
+- `rename_symbol`: `target_type: function|data|variable`
+- `set_comment`: `target: function|address`
+- `bookmarks`: `action: list|add|delete`
 
 **Tool Interface Methods**:
+
 - `isReadOnly()`: Indicates if tool modifies program state
 - `isLongRunning()`: Triggers async execution with task management
 - `isCacheable()`: Enables result caching for repeated queries
@@ -502,7 +525,7 @@ GhidrAssistMCP/
 
 ### Project Structure
 
-```
+```plaintext
 src/main/java/ghidrassistmcp/
 ├── GhidrAssistMCPPlugin.java      # Main plugin class
 ├── GhidrAssistMCPManager.java     # Singleton coordinator
@@ -516,12 +539,13 @@ src/main/java/ghidrassistmcp/
 ├── tasks/                         # Async task system
 ├── resources/                     # MCP resources
 ├── prompts/                       # MCP prompts
-└── tools/                         # Tool implementations (33 files)
+└── tools/                         # Tool implementations (34 files)
 ```
 
 ### Adding New Tools
 
 1. **Implement McpTool interface**:
+
    ```java
    public class MyCustomTool implements McpTool {
        @Override
@@ -550,6 +574,7 @@ src/main/java/ghidrassistmcp/
    ```
 
 2. **Register in backend**:
+
    ```java
    // In GhidrAssistMCPBackend constructor
    registerTool(new MyCustomTool());
@@ -561,11 +586,17 @@ src/main/java/ghidrassistmcp/
 # Clean build
 gradle clean
 
-# Build extension
+# Build extension zip (written to dist/)
 gradle buildExtension
 
-# Build with specific Ghidra path
-gradle -PGHIDRA_INSTALL_DIR=/path/to/ghidra buildExtension
+# Install (extract) extension into the Ghidra user Extensions directory
+gradle installExtension
+
+# Uninstall (delete extracted directory from the Ghidra user Extensions directory)
+gradle uninstallExtension
+
+# Build/install with specific Ghidra path (required if GHIDRA_INSTALL_DIR isn't set)
+gradle -PGHIDRA_INSTALL_DIR=/path/to/ghidra installExtension
 
 # Debug build
 gradle buildExtension --debug
@@ -575,7 +606,7 @@ gradle buildExtension --debug
 
 - **MCP SDK**: `io.modelcontextprotocol.sdk:mcp:0.17.1`
 - **Jetty Server**: `11.0.20` (HTTP/SSE transport)
-- **Jackson**: `2.17.0` (JSON processing)
+- **Jackson**: `2.18.3` (JSON processing)
 - **Ghidra API**: Bundled with Ghidra installation
 
 ## Logging
@@ -583,6 +614,7 @@ gradle buildExtension --debug
 ### UI Logging
 
 The **Log** tab provides real-time monitoring:
+
 - **Session Events**: Server start/stop, program changes
 - **Tool Requests**: `REQ: tool_name {parameters...}`
 - **Tool Responses**: `RES: tool_name {response...}`
@@ -592,6 +624,7 @@ The **Log** tab provides real-time monitoring:
 ### Console Logging
 
 Detailed logging in Ghidra's console:
+
 - Tool registration and initialization
 - MCP server lifecycle events
 - Async task execution and completion
@@ -603,27 +636,32 @@ Detailed logging in Ghidra's console:
 
 ### Common Issues
 
-**Server Won't Start**
+#### Server Won't Start
+
 - Check if port 8080 is available
 - Verify Ghidra installation path
 - Examine console logs for errors
 
-**Tools Not Appearing**
+#### Tools Not Appearing
+
 - Ensure plugin is enabled
 - Check Configuration tab for tool status
 - Verify backend initialization in logs
 
-**MCP Client Connection Issues**
+#### MCP Client Connection Issues
+
 - Confirm server is running (check GhidrAssistMCP window)
 - Test connection: `curl http://localhost:8080/sse`
 - Check firewall settings
 
-**Tool Execution Failures**
+#### Tool Execution Failures
+
 - Verify program is loaded in Ghidra
 - Check tool parameters are correct
 - Review error messages in Log tab
 
-**Async Task Issues**
+#### Async Task Issues
+
 - Use `get_task_status` to check task state
 - Use `list_tasks` to see all tasks
 - Use `cancel_task` if a task is stuck
@@ -631,6 +669,7 @@ Detailed logging in Ghidra's console:
 ### Debug Mode
 
 Enable debug logging by adding to Ghidra startup:
+
 ```bash
 -Dlog4j.logger.ghidrassistmcp=DEBUG
 ```
