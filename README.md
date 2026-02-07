@@ -10,7 +10,7 @@ GhidrAssistMCP bridges the gap between AI-powered analysis tools and Ghidra's co
 
 - **MCP Server Integration**: Full Model Context Protocol server implementation using official SDK
 - **Dual HTTP Transports**: Supports SSE and Streamable HTTP transports for maximum client compatibility
-- **33 Built-in Tools**: Comprehensive set of analysis tools with action-based consolidation for cleaner APIs
+- **34 Built-in Tools**: Comprehensive set of analysis tools with action-based consolidation for cleaner APIs
 - **5 MCP Resources**: Static data resources for program info, functions, strings, imports, and exports
 - **5 MCP Prompts**: Pre-built analysis prompts for common reverse engineering tasks
 - **Result Caching**: Intelligent caching system to improve performance for repeated queries
@@ -98,14 +98,14 @@ Shameless self-promotion: [GhidrAssist](https://github.com/jtang613/GhidrAssist)
 
 The Configuration tab allows you to:
 
-- **View all available tools** (32 total)
+- **View all available tools** (34 total)
 - **Enable/disable individual tools** using checkboxes
 - **Save configuration** to persist across sessions
 - **Monitor tool status** in real-time
 
 ## Available Tools
 
-GhidrAssistMCP provides 32 tools organized into categories. Several tools use an action-based API pattern where a single tool provides multiple related operations.
+GhidrAssistMCP provides 34 tools organized into categories. Several tools use an action-based API pattern where a single tool provides multiple related operations.
 
 ### Program & Data Listing
 
@@ -195,6 +195,7 @@ These tools bundle related operations behind a discriminator parameter (e.g., `a
 | Tool | Description |
 | ----- | ----------- |
 | `get_data_type` | Get detailed data type information and structure definitions |
+| `delete_data_type` | Delete a data type by name (optionally scoped by `category`) |
 | `set_data_type` | Set data type at a specific address |
 | `set_function_prototype` | Set function signature/prototype |
 | `set_local_variable_type` | Set data type for local variables |
@@ -346,6 +347,23 @@ Pre-built prompts for common analysis tasks:
 }
 ```
 
+### Delete a Data Type
+
+If multiple types share the same name across categories, pass `category` (or pass a full path in `name` starting with `/`).
+
+```json
+{
+  "method": "tools/call",
+  "params": {
+    "name": "delete_data_type",
+    "arguments": {
+      "name": "MyStruct",
+      "category": "/mytypes"
+    }
+  }
+}
+```
+
 ### Rename Function (Action-Based)
 
 ```json
@@ -464,7 +482,7 @@ GhidrAssistMCP/
 │   ├── DocumentFunctionPrompt.java
 │   ├── TraceDataFlowPrompt.java
 │   └── TraceNetworkDataPrompt.java
-└── tools/                    # MCP Tools (32 total)
+└── tools/                    # MCP Tools (34 total)
     ├── Consolidated action-based tools
     ├── Analysis tools
     ├── Modification tools
@@ -521,7 +539,7 @@ src/main/java/ghidrassistmcp/
 ├── tasks/                         # Async task system
 ├── resources/                     # MCP resources
 ├── prompts/                       # MCP prompts
-└── tools/                         # Tool implementations (33 files)
+└── tools/                         # Tool implementations (34 files)
 ```
 
 ### Adding New Tools

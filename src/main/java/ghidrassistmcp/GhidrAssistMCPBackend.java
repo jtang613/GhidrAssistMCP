@@ -32,6 +32,7 @@ import ghidrassistmcp.tasks.McpTaskManager;
 import ghidrassistmcp.tools.BookmarksTool;
 import ghidrassistmcp.tools.CancelTaskTool;
 import ghidrassistmcp.tools.ClassTool;
+import ghidrassistmcp.tools.DeleteDataTypeTool;
 import ghidrassistmcp.tools.GetBasicBlocksTool;
 import ghidrassistmcp.tools.GetCallGraphTool;
 import ghidrassistmcp.tools.GetCodeTool;
@@ -106,6 +107,7 @@ public class GhidrAssistMCPBackend implements McpBackend {
         registerTool(new GetHexdumpTool());
         registerTool(new GetCurrentFunctionTool());
         registerTool(new GetDataTypeTool());
+        registerTool(new DeleteDataTypeTool());
         registerTool(new ListDataTool());
         registerTool(new ListDataTypesTool());
         registerTool(new ListNamespacesTool());
