@@ -574,7 +574,7 @@ gradle buildExtension --debug
 
 - **MCP SDK**: `io.modelcontextprotocol.sdk:mcp:0.17.1`
 - **Jetty Server**: `11.0.20` (HTTP/SSE transport)
-- **Jackson**: `2.17.0` (JSON processing)
+- **Jackson**: `2.18.3` (JSON processing)
 - **Ghidra API**: Bundled with Ghidra installation
 
 ## Logging
