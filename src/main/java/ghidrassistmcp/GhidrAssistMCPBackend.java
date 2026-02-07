@@ -53,6 +53,7 @@ import ghidrassistmcp.tools.ListSegmentsTool;
 import ghidrassistmcp.tools.ListStringsTool;
 import ghidrassistmcp.tools.ListTasksTool;
 import ghidrassistmcp.tools.ProgramInfoTool;
+import ghidrassistmcp.tools.RenameSymbolBatchTool;
 import ghidrassistmcp.tools.RenameSymbolTool;
 import ghidrassistmcp.tools.SearchBytesTool;
 import ghidrassistmcp.tools.SetCommentTool;
@@ -109,7 +110,7 @@ public class GhidrAssistMCPBackend implements McpBackend {
         registerTool(new ListDataTypesTool());
         registerTool(new ListNamespacesTool());
         registerTool(new ListProgramsTool());
-        registerTool(new ClassTool());          // Consolidated class tool (list, get_info)
+        registerTool(new ClassTool());
         registerTool(new SetFunctionPrototypeTool());
         registerTool(new SetLocalVariableTypeTool());
         registerTool(new SetDataTypeTool());
@@ -120,11 +121,12 @@ public class GhidrAssistMCPBackend implements McpBackend {
         registerTool(new ListTasksTool());
 
         // Register consolidated and advanced tools
-        registerTool(new GetCodeTool());        // Consolidates decompile, disassemble, pcode
-        registerTool(new SetCommentTool());     // Consolidates decompiler and disassembly comments
-        registerTool(new RenameSymbolTool());   // Consolidates function, data, variable rename
-        registerTool(new XrefsTool());          // Consolidated xrefs with address and function support
-        registerTool(new StructTool());         // Consolidates create, modify, auto_create, rename_field
+        registerTool(new GetCodeTool());
+        registerTool(new SetCommentTool());
+        registerTool(new RenameSymbolTool());
+        registerTool(new RenameSymbolBatchTool());
+        registerTool(new XrefsTool());
+        registerTool(new StructTool());
         registerTool(new GetCallGraphTool());
         registerTool(new SearchBytesTool());
         registerTool(new BookmarksTool());
