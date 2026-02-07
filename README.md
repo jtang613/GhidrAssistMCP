@@ -28,9 +28,8 @@ Shameless self-promotion: [GhidrAssist](https://github.com/jtang613/GhidrAssist)
 
 ## Screenshots
 
-![Screenshot](https://github.com/jtang613/GhidrAssistMCP/blob/master/res/Screenshot1.png)
-![Screenshot](https://github.com/jtang613/GhidrAssistMCP/blob/master/res/Screenshot2.png)
-
+![Screenshot](./res/Screenshot1.png)
+![Screenshot](./res/Screenshot2.png)
 
 ## Installation
 
@@ -58,6 +57,7 @@ Shameless self-promotion: [GhidrAssist](https://github.com/jtang613/GhidrAssist)
 ### Building from Source
 
 1. **Clone the repository**:
+
    ```bash
    git clone <repository-url>
    cd GhidrAssistMCP
@@ -97,6 +97,7 @@ Shameless self-promotion: [GhidrAssist](https://github.com/jtang613/GhidrAssist)
 ### Tool Management
 
 The Configuration tab allows you to:
+
 - **View all available tools** (33 total)
 - **Enable/disable individual tools** using checkboxes
 - **Save configuration** to persist across sessions
@@ -109,7 +110,7 @@ GhidrAssistMCP provides 33 tools organized into categories. Several tools use an
 ### Program & Data Listing
 
 | Tool | Description |
-|------|-------------|
+| ---- | ----------- |
 | `get_program_info` | Get basic program information (name, architecture, compiler, etc.) |
 | `list_programs` | List all open programs across all CodeBrowser windows |
 | `list_functions` | List functions with optional pattern filtering and pagination |
@@ -126,7 +127,7 @@ GhidrAssistMCP provides 33 tools organized into categories. Several tools use an
 ### Function & Code Analysis
 
 | Tool | Description |
-|------|-------------|
+| ---- | ----------- |
 | `get_function_info` | Get detailed function information (signature, variables, etc.) |
 | `get_current_function` | Get function at current cursor position |
 | `get_current_address` | Get current cursor address |
@@ -139,27 +140,31 @@ GhidrAssistMCP provides 33 tools organized into categories. Several tools use an
 These tools provide multiple operations through an `action` parameter:
 
 #### `get_code` - Code Retrieval Tool
+
 | Action | Description |
-|--------|-------------|
+| ------ | ----------- |
 | `decompiler` | Decompile function to C-like pseudocode |
 | `disassembly` | Get assembly disassembly |
 | `pcode` | Get P-code intermediate representation |
 
 #### `class` - Class Operations Tool
+
 | Action | Description |
-|--------|-------------|
+| ------ | ----------- |
 | `list` | List classes with optional pattern filtering and pagination |
 | `get_info` | Get detailed class information (methods, fields, vtables, virtual functions) |
 
 #### `xrefs` - Cross-Reference Tool
+
 | Parameter | Description |
-|-----------|-------------|
+| --------- | ----------- |
 | `address` | Find all references to/from a specific address |
 | `function_name` | Find all cross-references for a function |
 
 #### `struct` - Structure Operations Tool
+
 | Action | Description |
-|--------|-------------|
+| ------ | ----------- |
 | `create` | Create a new structure from C definition or empty |
 | `modify` | Modify an existing structure with new C definition |
 | `auto_create` | Automatically create structure from variable usage patterns |
@@ -167,21 +172,24 @@ These tools provide multiple operations through an `action` parameter:
 | `field_xrefs` | Find cross-references to a specific struct field |
 
 #### `rename_symbol` - Symbol Renaming Tool
+
 | Action | Description |
-|--------|-------------|
+| ------ | ----------- |
 | `function` | Rename a function |
 | `data` | Rename a data label |
 | `variable` | Rename a local variable or parameter |
 
 #### `set_comment` - Comment Tool
+
 | Action | Description |
-|--------|-------------|
+| ------ | ----------- |
 | `decompiler` | Set/modify decompiler (pseudocode) comment |
 | `disassembly` | Set/modify disassembly (assembly) comment |
 
 #### `bookmarks` - Bookmark Management Tool
+
 | Action | Description |
-|--------|-------------|
+| ------ | ----------- |
 | `list` | List all bookmarks |
 | `add` | Add a new bookmark |
 | `delete` | Delete a bookmark |
@@ -189,7 +197,7 @@ These tools provide multiple operations through an `action` parameter:
 ### Type & Prototype Tools
 
 | Tool | Description |
-|------|-------------|
+| ----- | ----------- |
 | `get_data_type` | Get detailed data type information and structure definitions |
 | `set_data_type` | Set data type at a specific address |
 | `set_function_prototype` | Set function signature/prototype |
@@ -198,7 +206,7 @@ These tools provide multiple operations through an `action` parameter:
 ### Search Tools
 
 | Tool | Description |
-|------|-------------|
+| ----- | ----------- |
 | `search_bytes` | Search for byte patterns in memory |
 
 ### Async Task Management
@@ -206,7 +214,7 @@ These tools provide multiple operations through an `action` parameter:
 Long-running operations (decompilation, structure analysis, field xrefs) execute asynchronously:
 
 | Tool | Description |
-|------|-------------|
+| ---- | ----------- |
 | `get_task_status` | Check status and retrieve results of async tasks |
 | `cancel_task` | Cancel a running async task |
 | `list_tasks` | List all pending/running/completed tasks |
@@ -216,7 +224,7 @@ Long-running operations (decompilation, structure analysis, field xrefs) execute
 GhidrAssistMCP exposes 5 static resources that can be read by MCP clients:
 
 | Resource URI | Description |
-|--------------|-------------|
+| ------------ | ----------- |
 | `ghidra://program/info` | Basic program information |
 | `ghidra://program/functions` | List of all functions |
 | `ghidra://program/strings` | String references |
@@ -228,7 +236,7 @@ GhidrAssistMCP exposes 5 static resources that can be read by MCP clients:
 Pre-built prompts for common analysis tasks:
 
 | Prompt | Description |
-|--------|-------------|
+| ------ | ----------- |
 | `analyze_function` | Comprehensive function analysis prompt |
 | `identify_vulnerability` | Security vulnerability identification |
 | `document_function` | Generate function documentation |
@@ -400,7 +408,7 @@ GhidrAssistMCP uses a singleton architecture that enables seamless operation acr
 
 Every tool response includes a context header:
 
-```
+```plaintext
 [Context] Operating on: malware.exe | Active window: malware.exe
 
 <tool response content>
@@ -408,7 +416,7 @@ Every tool response includes a context header:
 
 or when targeting a different program:
 
-```
+```plaintext
 [Context] Operating on: lib.so | Active window: main.exe | Total open programs: 3
 
 <tool response content>
@@ -425,7 +433,7 @@ or when targeting a different program:
 
 ### Core Components
 
-```
+```plaintext
 GhidrAssistMCP/
 ├── GhidrAssistMCPManager     # Singleton coordinator for multi-window support
 │   ├── Tracks all CodeBrowser windows
@@ -470,6 +478,7 @@ GhidrAssistMCP/
 ### Tool Design Patterns
 
 **Action-Based Tools**: Related operations are consolidated into single tools with an `action` parameter:
+
 - `get_code`: decompiler, disassembly, pcode
 - `class`: list, get_info
 - `struct`: create, modify, auto_create, rename_field, field_xrefs
@@ -478,6 +487,7 @@ GhidrAssistMCP/
 - `bookmarks`: list, add, delete
 
 **Tool Interface Methods**:
+
 - `isReadOnly()`: Indicates if tool modifies program state
 - `isLongRunning()`: Triggers async execution with task management
 - `isCacheable()`: Enables result caching for repeated queries
@@ -501,7 +511,7 @@ GhidrAssistMCP/
 
 ### Project Structure
 
-```
+```plaintext
 src/main/java/ghidrassistmcp/
 ├── GhidrAssistMCPPlugin.java      # Main plugin class
 ├── GhidrAssistMCPManager.java     # Singleton coordinator
@@ -521,6 +531,7 @@ src/main/java/ghidrassistmcp/
 ### Adding New Tools
 
 1. **Implement McpTool interface**:
+
    ```java
    public class MyCustomTool implements McpTool {
        @Override
@@ -549,6 +560,7 @@ src/main/java/ghidrassistmcp/
    ```
 
 2. **Register in backend**:
+
    ```java
    // In GhidrAssistMCPBackend constructor
    registerTool(new MyCustomTool());
@@ -560,11 +572,17 @@ src/main/java/ghidrassistmcp/
 # Clean build
 gradle clean
 
-# Build extension
+# Build extension zip (written to dist/)
 gradle buildExtension
 
-# Build with specific Ghidra path
-gradle -PGHIDRA_INSTALL_DIR=/path/to/ghidra buildExtension
+# Install (extract) extension into the Ghidra user Extensions directory
+gradle installExtension
+
+# Uninstall (delete extracted directory from the Ghidra user Extensions directory)
+gradle uninstallExtension
+
+# Build/install with specific Ghidra path (required if GHIDRA_INSTALL_DIR isn't set)
+gradle -PGHIDRA_INSTALL_DIR=/path/to/ghidra installExtension
 
 # Debug build
 gradle buildExtension --debug
@@ -582,6 +600,7 @@ gradle buildExtension --debug
 ### UI Logging
 
 The **Log** tab provides real-time monitoring:
+
 - **Session Events**: Server start/stop, program changes
 - **Tool Requests**: `REQ: tool_name {parameters...}`
 - **Tool Responses**: `RES: tool_name {response...}`
@@ -591,6 +610,7 @@ The **Log** tab provides real-time monitoring:
 ### Console Logging
 
 Detailed logging in Ghidra's console:
+
 - Tool registration and initialization
 - MCP server lifecycle events
 - Async task execution and completion
@@ -602,27 +622,32 @@ Detailed logging in Ghidra's console:
 
 ### Common Issues
 
-**Server Won't Start**
+#### Server Won't Start
+
 - Check if port 8080 is available
 - Verify Ghidra installation path
 - Examine console logs for errors
 
-**Tools Not Appearing**
+#### Tools Not Appearing
+
 - Ensure plugin is enabled
 - Check Configuration tab for tool status
 - Verify backend initialization in logs
 
-**MCP Client Connection Issues**
+#### MCP Client Connection Issues
+
 - Confirm server is running (check GhidrAssistMCP window)
 - Test connection: `curl http://localhost:8080/sse`
 - Check firewall settings
 
-**Tool Execution Failures**
+#### Tool Execution Failures
+
 - Verify program is loaded in Ghidra
 - Check tool parameters are correct
 - Review error messages in Log tab
 
-**Async Task Issues**
+#### Async Task Issues
+
 - Use `get_task_status` to check task state
 - Use `list_tasks` to see all tasks
 - Use `cancel_task` if a task is stuck
@@ -630,6 +655,7 @@ Detailed logging in Ghidra's console:
 ### Debug Mode
 
 Enable debug logging by adding to Ghidra startup:
+
 ```bash
 -Dlog4j.logger.ghidrassistmcp=DEBUG
 ```
