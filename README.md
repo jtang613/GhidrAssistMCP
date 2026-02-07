@@ -98,14 +98,14 @@ Shameless self-promotion: [GhidrAssist](https://github.com/jtang613/GhidrAssist)
 
 The Configuration tab allows you to:
 
-- **View all available tools** (33 total)
+- **View all available tools** (32 total)
 - **Enable/disable individual tools** using checkboxes
 - **Save configuration** to persist across sessions
 - **Monitor tool status** in real-time
 
 ## Available Tools
 
-GhidrAssistMCP provides 33 tools organized into categories. Several tools use an action-based API pattern where a single tool provides multiple related operations.
+GhidrAssistMCP provides 32 tools organized into categories. Several tools use an action-based API pattern where a single tool provides multiple related operations.
 
 ### Program & Data Listing
 
@@ -121,7 +121,6 @@ GhidrAssistMCP provides 33 tools organized into categories. Several tools use an
 | `list_exports` | List exported functions/symbols |
 | `list_segments` | List memory segments |
 | `list_namespaces` | List namespaces in the program |
-| `list_methods` | List method definitions |
 | `list_relocations` | List relocation entries |
 
 ### Function & Code Analysis
@@ -468,7 +467,7 @@ GhidrAssistMCP/
 │   ├── DocumentFunctionPrompt.java
 │   ├── TraceDataFlowPrompt.java
 │   └── TraceNetworkDataPrompt.java
-└── tools/                    # MCP Tools (33 total)
+└── tools/                    # MCP Tools (32 total)
     ├── Consolidated action-based tools
     ├── Analysis tools
     ├── Modification tools

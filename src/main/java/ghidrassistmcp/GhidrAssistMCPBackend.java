@@ -47,7 +47,6 @@ import ghidrassistmcp.tools.ListExportsTool;
 import ghidrassistmcp.tools.ListProgramsTool;
 import ghidrassistmcp.tools.ListFunctionsTool;
 import ghidrassistmcp.tools.ListImportsTool;
-import ghidrassistmcp.tools.ListMethodsTool;
 import ghidrassistmcp.tools.ListNamespacesTool;
 import ghidrassistmcp.tools.ListRelocationsTool;
 import ghidrassistmcp.tools.ListSegmentsTool;
@@ -98,7 +97,6 @@ public class GhidrAssistMCPBackend implements McpBackend {
         registerTool(new ProgramInfoTool());
         registerTool(new ListFunctionsTool());
         registerTool(new GetFunctionInfoTool());
-        registerTool(new ListMethodsTool());
         registerTool(new ListSegmentsTool());
         registerTool(new ListImportsTool());
         registerTool(new ListExportsTool());
