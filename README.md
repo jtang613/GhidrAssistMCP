@@ -63,25 +63,24 @@ Shameless self-promotion: [GhidrAssist](https://github.com/jtang613/GhidrAssist)
    cd GhidrAssistMCP
    ```
 
-2. **Set Ghidra installation path**:
+2. **Point Gradle at your Ghidra install**:
+   - Set `GHIDRA_INSTALL_DIR` (environment variable), or pass `-PGHIDRA_INSTALL_DIR=<path>` when you run Gradle.
+
+3. **Build + install**:
+
+   Ensure Ghidra isn't running and run:
+
    ```bash
-   export GHIDRA_INSTALL_DIR=/path/to/your/ghidra/installation
+   gradle installExtension
    ```
 
-3. **Build the extension**:
-   ```bash
-   gradle buildExtension
-   ```
+   This copies the built ZIP into your Ghidra install (`[GHIDRA_INSTALL_DIR]/Extensions/Ghidra`) and extracts it into your Ghidra **user** Extensions folder (replacing any existing extracted copy).
 
-4. **Install the extension**:
-   - Copy the generated ZIP file from `dist/` directory
-   - In Ghidra: **File → Install Extensions → Add Extension**
-   - Select the ZIP file and restart Ghidra
+   If you need to override that location, pass `-PGHIDRA_USER_EXTENSIONS_DIR=<path>`.
 
-5. **Enable the plugin**:
-   - **File → Configure → Configure Plugins**
-   - Search for "GhidrAssistMCP"
-   - Check the box to enable the plugin
+4. **Restart / verify**:
+   - Restart Ghidra.
+   - If the plugin doesn't appear, enable it via **File → Configure → Configure Plugins** (search for "GhidrAssistMCP").
 
 ## Configuration
 
