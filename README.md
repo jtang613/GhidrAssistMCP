@@ -28,8 +28,8 @@ Shameless self-promotion: [GhidrAssist](https://github.com/jtang613/GhidrAssist)
 
 ## Screenshots
 
-![Screenshot](./res/Screenshot1.png)
-![Screenshot](./res/Screenshot2.png)
+![Screenshot](https://github.com/jtang613/GhidrAssistMCP/blob/master/res/Screenshot1.png)
+![Screenshot](https://github.com/jtang613/GhidrAssistMCP/blob/master/res/Screenshot2.png)
 
 ## Installation
 
