@@ -66,7 +66,8 @@ dependencies {
  *
  * This mirrors the Ghidra UI "Install Extensions" flow, which ultimately extracts into:
  * - Windows: %APPDATA%\ghidra\ghidra_<version>_<release>\Extensions\<ExtensionName>
- * - Linux/macOS: ~/.ghidra/ghidra_<version>_<release>/Extensions/<ExtensionName>
+ * - Linux: ~/.config/ghidra/ghidra_<version>_<release>/Extensions/<ExtensionName>
+ * - macOS: ~/Library/ghidra/ghidra_<version>_<release>/Extensions/<ExtensionName>
  *
  * You can override the destination Extensions folder via:
  * - Gradle property: -PGHIDRA_USER_EXTENSIONS_DIR="C:\path\to\... \Extensions"
@@ -90,7 +91,13 @@ def getGhidraUserExtensionsDir = {
 		}
 	}
 
-	return file("${System.getProperty('user.home')}/.ghidra/${ghidraUserProfileDirName}/Extensions")
+	if (osName.contains("mac") || osName.contains("darwin")) {
+		return file("${System.getProperty('user.home')}/Library/ghidra/${ghidraUserProfileDirName}/Extensions")
+	}
+
+	def xdgConfigHome = System.getenv("XDG_CONFIG_HOME")
+	def linuxConfigDir = xdgConfigHome ?: "${System.getProperty('user.home')}/.config"
+	return file("${linuxConfigDir}/ghidra/${ghidraUserProfileDirName}/Extensions")
 }
 
 /**
