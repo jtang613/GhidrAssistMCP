@@ -165,6 +165,9 @@ These tools bundle related operations behind a discriminator parameter (e.g., `a
 | ------ | ----------- |
 | `create` | Create a new structure from C definition or empty |
 | `modify` | Modify an existing structure with new C definition |
+| `merge` | Merge (overlay) fields from a C definition onto an existing structure without deleting existing fields |
+| `set_field` | Set/insert a single field at a specific offset without needing a full C struct (use `field_name` to name it) |
+| `name_gap` | Convert undefined bytes at an offset/length into a named `byte[]`-like field (useful for “naming gaps”; uses `field_name`) |
 | `auto_create` | Automatically create structure from variable usage patterns |
 | `rename_field` | Rename a field within a structure |
 | `field_xrefs` | Find cross-references to a specific struct field |
