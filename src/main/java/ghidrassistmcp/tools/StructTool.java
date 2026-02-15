@@ -7,7 +7,6 @@ package ghidrassistmcp.tools;
 import java.io.ByteArrayInputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -23,6 +22,7 @@ import ghidra.app.decompiler.DecompileOptions;
 import ghidra.app.decompiler.DecompileResults;
 import ghidra.app.util.cparser.C.CParser;
 import ghidra.program.model.address.Address;
+import ghidra.program.model.data.ArrayDataType;
 import ghidra.program.model.data.CategoryPath;
 import ghidra.program.model.data.DataType;
 import ghidra.program.model.data.DataTypeComponent;
@@ -32,6 +32,7 @@ import ghidra.program.model.data.PointerDataType;
 import ghidra.program.model.data.Structure;
 import ghidra.program.model.data.StructureDataType;
 import ghidra.program.model.data.TypeDef;
+import ghidra.program.model.data.UnsignedCharDataType;
 import ghidra.program.model.listing.Function;
 import ghidra.program.model.listing.Function.FunctionUpdateType;
 import ghidra.program.model.listing.FunctionIterator;
@@ -132,7 +133,7 @@ public class StructTool implements McpTool {
 
     @Override
     public String getDescription() {
-        return "Structure operations: create, modify, auto_create, rename_field, or field_xrefs";
+        return "Structure operations: create, modify, merge, set_field, name_gap, auto_create, rename_field, or field_xrefs";
     }
 
     @Override
@@ -144,7 +145,7 @@ public class StructTool implements McpTool {
                 Map.entry("action", Map.of(
                     "type", "string",
                     "description", "Structure operation to perform",
-                    "enum", List.of("create", "modify", "auto_create", "rename_field", "field_xrefs")
+                    "enum", List.of("create", "modify", "merge", "set_field", "name_gap", "auto_create", "rename_field", "field_xrefs")
                 )),
 
                 // create
@@ -191,6 +192,11 @@ public class StructTool implements McpTool {
                     "description", "For action='modify': if true, allow replacing a non-empty struct with an empty parsed definition. Default false (safety).",
                     "default", false
                 )),
+                Map.entry("update_packing", Map.of(
+                    "type", "boolean",
+                    "description", "For action='merge': if true, update the target structure's packing setting to match the parsed C definition. Default false.",
+                    "default", false
+                )),
 
                 // auto_create
                 Map.entry("function_identifier", Map.of(
@@ -217,10 +223,52 @@ public class StructTool implements McpTool {
                     "minimum", 0
                 )),
 
-                // field_xrefs
+                // set_field / name_gap
+                Map.entry("data_type", Map.of(
+                    "type", "string",
+                    "description", "For action='set_field': base data type name (e.g. \"uint\", \"int\", \"MyStruct\"). Must exist in the program DataTypeManager."
+                )),
+                Map.entry("comment", Map.of(
+                    "type", "string",
+                    "description", "For action='set_field'/'name_gap': optional field comment"
+                )),
+                Map.entry("pointer_level", Map.of(
+                    "type", "integer",
+                    "description", "For action='set_field': number of pointer indirections to apply to data_type (e.g. 1 for T*, 2 for T**). Default 0.",
+                    "default", 0,
+                    "minimum", 0
+                )),
+                Map.entry("array_count", Map.of(
+                    "type", "integer",
+                    "description", "For action='set_field': if provided, wraps the (possibly pointer-adjusted) type in an array of this many elements.",
+                    "minimum", 1
+                )),
+                Map.entry("field_length", Map.of(
+                    "type", "integer",
+                    "description", "For action='set_field'/'name_gap': explicit length in bytes. Required when the resolved data type has variable/unknown length. For name_gap, this is the gap size.",
+                    "minimum", 1
+                )),
+                Map.entry("op", Map.of(
+                    "type", "string",
+                    "description", "For action='set_field': how to apply the field at offset.",
+                    "enum", List.of("replace", "insert"),
+                    "default", "replace"
+                )),
+                Map.entry("grow", Map.of(
+                    "type", "boolean",
+                    "description", "For action='set_field'/'name_gap': if true, grows structure size as needed when offset+length exceeds current size. Default true.",
+                    "default", true
+                )),
+                Map.entry("allow_overwrite", Map.of(
+                    "type", "boolean",
+                    "description", "For action='name_gap': if false (default), refuses to overwrite any non-undefined bytes in the target range.",
+                    "default", false
+                )),
+
+                // field_xrefs + set_field/name_gap naming
                 Map.entry("field_name", Map.of(
                     "type", "string",
-                    "description", "For action='field_xrefs': field name to find references for (provide either field_name or field_offset)"
+                    "description", "For action='set_field'/'name_gap': field name to apply at the target offset. For action='field_xrefs': field name to find references for (provide either field_name or field_offset)."
                 )),
                 Map.entry("field_offset", Map.of(
                     "type", "integer",
@@ -268,6 +316,12 @@ public class StructTool implements McpTool {
                 return executeCreate(arguments, currentProgram);
             case "modify":
                 return executeModify(arguments, currentProgram);
+            case "merge":
+                return executeMerge(arguments, currentProgram);
+            case "set_field":
+                return executeSetField(arguments, currentProgram);
+            case "name_gap":
+                return executeNameGap(arguments, currentProgram);
             case "auto_create":
                 return executeAutoCreate(arguments, currentProgram);
             case "rename_field":
@@ -276,7 +330,7 @@ public class StructTool implements McpTool {
                 return executeFieldXrefs(arguments, currentProgram);
             default:
                 return McpSchema.CallToolResult.builder()
-                    .addTextContent("Invalid action. Use 'create', 'modify', 'auto_create', 'rename_field', or 'field_xrefs'")
+                    .addTextContent("Invalid action. Use 'create', 'modify', 'merge', 'set_field', 'name_gap', 'auto_create', 'rename_field', or 'field_xrefs'")
                     .build();
         }
     }
@@ -466,6 +520,389 @@ public class StructTool implements McpTool {
         } finally {
             currentProgram.endTransaction(txId, committed);
         }
+    }
+
+    // ========== MERGE ACTION ==========
+
+    /**
+     * Merge (overlay) a parsed C structure definition onto an existing structure without deleting
+     * existing fields first. This is useful for incrementally adding a few fields without rewriting
+     * the full definition.
+     *
+     * Notes:
+     * - Only reliable for non-packed structures. For packed structures, use modify or set_field.
+     */
+    private McpSchema.CallToolResult executeMerge(Map<String, Object> arguments, Program currentProgram) {
+        String structureName = (String) arguments.get("structure_name");
+        String cDefinition = (String) arguments.get("c_definition");
+        Boolean updatePacking = (Boolean) arguments.get("update_packing");
+
+        if (structureName == null || structureName.isEmpty()) {
+            return McpSchema.CallToolResult.builder()
+                .addTextContent("structure_name parameter is required for merge action")
+                .build();
+        }
+        if (cDefinition == null || cDefinition.isEmpty()) {
+            return McpSchema.CallToolResult.builder()
+                .addTextContent("c_definition parameter is required for merge action")
+                .build();
+        }
+
+        int txId = currentProgram.startTransaction("Merge Structure Fields");
+        boolean committed = false;
+        try {
+            DataTypeManager dtm = currentProgram.getDataTypeManager();
+            Structure existingStruct = findStructure(dtm, structureName);
+            if (existingStruct == null) {
+                return McpSchema.CallToolResult.builder()
+                    .addTextContent("Structure '" + structureName + "' not found. Use action='create' first.")
+                    .build();
+            }
+
+            if (existingStruct.isPackingEnabled()) {
+                return McpSchema.CallToolResult.builder()
+                    .addTextContent("Cannot safely merge into a packed structure ('" + existingStruct.getName() +
+                        "'). Use action='modify' or action='set_field' instead.")
+                    .build();
+            }
+
+            Structure parsedStruct = parseStructFromCDefinition(dtm, cDefinition, structureName);
+            if (parsedStruct == null) {
+                return McpSchema.CallToolResult.builder()
+                    .addTextContent("Failed to parse C structure definition")
+                    .build();
+            }
+
+            StructureSnapshot snapshot = snapshotStructure(parsedStruct);
+            boolean shouldUpdatePacking = updatePacking != null && updatePacking;
+            if (shouldUpdatePacking) {
+                existingStruct.setPackingEnabled(snapshot.packed);
+            }
+
+            for (ComponentSnapshot comp : snapshot.components) {
+                int offset = comp.offset;
+                DataType compType = comp.dataType;
+                int compLength = comp.length;
+                String fieldName = comp.fieldName;
+                String comment = comp.comment;
+
+                if (!existingStruct.isPackingEnabled() && existingStruct.getLength() < offset) {
+                    existingStruct.growStructure(offset - existingStruct.getLength());
+                }
+                try {
+                    existingStruct.replaceAtOffset(offset, compType, compLength, fieldName, comment);
+                } catch (Exception e) {
+                    existingStruct.insertAtOffset(offset, compType, compLength, fieldName, comment);
+                }
+            }
+
+            committed = true;
+            return McpSchema.CallToolResult.builder()
+                .addTextContent("Successfully merged fields into structure '" + existingStruct.getName() +
+                    "': now has " + existingStruct.getNumComponents() + " components, size " +
+                    existingStruct.getLength() + " bytes")
+                .build();
+
+        } catch (Exception e) {
+            String msg = "Error merging structure fields: " + e.getMessage();
+            Msg.error(this, msg, e);
+            return McpSchema.CallToolResult.builder()
+                .addTextContent(msg)
+                .build();
+        } finally {
+            currentProgram.endTransaction(txId, committed);
+        }
+    }
+
+    // ========== SET_FIELD ACTION ==========
+
+    private McpSchema.CallToolResult executeSetField(Map<String, Object> arguments, Program currentProgram) {
+        String structureName = (String) arguments.get("structure_name");
+        Number fieldOffsetNum = (Number) arguments.get("field_offset");
+        String dataTypeName = (String) arguments.get("data_type");
+        String fieldName = (String) arguments.get("field_name");
+        String comment = (String) arguments.get("comment");
+        Number pointerLevelNum = (Number) arguments.get("pointer_level");
+        Number arrayCountNum = (Number) arguments.get("array_count");
+        Number fieldLengthNum = (Number) arguments.get("field_length");
+        String op = (String) arguments.get("op");
+        Boolean grow = (Boolean) arguments.get("grow");
+
+        if (structureName == null || structureName.isEmpty()) {
+            return McpSchema.CallToolResult.builder()
+                .addTextContent("structure_name parameter is required for set_field action")
+                .build();
+        }
+        if (fieldOffsetNum == null) {
+            return McpSchema.CallToolResult.builder()
+                .addTextContent("field_offset parameter is required for set_field action")
+                .build();
+        }
+        if (dataTypeName == null || dataTypeName.isEmpty()) {
+            return McpSchema.CallToolResult.builder()
+                .addTextContent("data_type parameter is required for set_field action")
+                .build();
+        }
+
+        int fieldOffset = fieldOffsetNum.intValue();
+        int pointerLevel = pointerLevelNum != null ? pointerLevelNum.intValue() : 0;
+        Integer arrayCount = arrayCountNum != null ? arrayCountNum.intValue() : null;
+        Integer explicitLength = fieldLengthNum != null ? fieldLengthNum.intValue() : null;
+        String operation = op != null && !op.isBlank() ? op.toLowerCase() : "replace";
+        boolean shouldGrow = grow == null || grow;
+
+        if (!operation.equals("replace") && !operation.equals("insert")) {
+            return McpSchema.CallToolResult.builder()
+                .addTextContent("Invalid op for set_field: '" + op + "'. Use 'replace' or 'insert'.")
+                .build();
+        }
+        if (fieldOffset < 0) {
+            return McpSchema.CallToolResult.builder()
+                .addTextContent("field_offset must be >= 0")
+                .build();
+        }
+        if (pointerLevel < 0) {
+            return McpSchema.CallToolResult.builder()
+                .addTextContent("pointer_level must be >= 0")
+                .build();
+        }
+        if (arrayCount != null && arrayCount < 1) {
+            return McpSchema.CallToolResult.builder()
+                .addTextContent("array_count must be >= 1")
+                .build();
+        }
+        if (explicitLength != null && explicitLength < 1) {
+            return McpSchema.CallToolResult.builder()
+                .addTextContent("field_length must be >= 1")
+                .build();
+        }
+
+        int txId = currentProgram.startTransaction("Set Structure Field");
+        boolean committed = false;
+        try {
+            DataTypeManager dtm = currentProgram.getDataTypeManager();
+            Structure struct = findStructure(dtm, structureName);
+            if (struct == null) {
+                return McpSchema.CallToolResult.builder()
+                    .addTextContent("Structure '" + structureName + "' not found")
+                    .build();
+            }
+
+            DataType baseType = resolveDataType(dtm, dataTypeName);
+            if (baseType == null) {
+                return McpSchema.CallToolResult.builder()
+                    .addTextContent("Data type not found: " + dataTypeName)
+                    .build();
+            }
+
+            DataType resolvedType = baseType;
+            for (int i = 0; i < pointerLevel; i++) {
+                resolvedType = dtm.getPointer(resolvedType);
+            }
+            if (arrayCount != null) {
+                int elemLen = resolvedType.getLength();
+                if (elemLen <= 0) {
+                    return McpSchema.CallToolResult.builder()
+                        .addTextContent("Cannot build array of variable-length type '" + resolvedType.getName() +
+                            "'. Provide a fixed-length base type (or avoid array_count).")
+                        .build();
+                }
+                resolvedType = new ArrayDataType(resolvedType, arrayCount, elemLen);
+            }
+
+            int length = explicitLength != null ? explicitLength : resolvedType.getLength();
+            if (length <= 0) {
+                return McpSchema.CallToolResult.builder()
+                    .addTextContent("Resolved data type '" + resolvedType.getName() + "' has variable/unknown length. " +
+                        "Provide field_length explicitly.")
+                    .build();
+            }
+
+            if (shouldGrow && struct.getLength() < fieldOffset + length) {
+                int needed = (fieldOffset + length) - struct.getLength();
+                if (needed > 0) {
+                    struct.growStructure(needed);
+                }
+            }
+
+            try {
+                if (operation.equals("insert")) {
+                    struct.insertAtOffset(fieldOffset, resolvedType, length, fieldName, comment);
+                } else {
+                    struct.replaceAtOffset(fieldOffset, resolvedType, length, fieldName, comment);
+                }
+            } catch (Exception e) {
+                // Fallback: replace might fail if there's no component at offset, and insert might fail due to overlap.
+                // Try the other operation before failing.
+                try {
+                    if (operation.equals("insert")) {
+                        struct.replaceAtOffset(fieldOffset, resolvedType, length, fieldName, comment);
+                    } else {
+                        struct.insertAtOffset(fieldOffset, resolvedType, length, fieldName, comment);
+                    }
+                } catch (Exception e2) {
+                    return McpSchema.CallToolResult.builder()
+                        .addTextContent("Failed to apply field at offset 0x" + Integer.toHexString(fieldOffset) +
+                            " in structure '" + struct.getName() + "': " + e2.getMessage())
+                        .build();
+                }
+            }
+
+            committed = true;
+            return McpSchema.CallToolResult.builder()
+                .addTextContent("Successfully set field at +0x" + Integer.toHexString(fieldOffset) +
+                    " in structure '" + struct.getName() + "' to type '" + resolvedType.getName() + "'" +
+                    (fieldName != null && !fieldName.isBlank() ? " name '" + fieldName + "'" : "") +
+                    " (" + length + " bytes)")
+                .build();
+
+        } catch (Exception e) {
+            String msg = "Error setting structure field: " + e.getMessage();
+            Msg.error(this, msg, e);
+            return McpSchema.CallToolResult.builder()
+                .addTextContent(msg)
+                .build();
+        } finally {
+            currentProgram.endTransaction(txId, committed);
+        }
+    }
+
+    // ========== NAME_GAP ACTION ==========
+
+    private McpSchema.CallToolResult executeNameGap(Map<String, Object> arguments, Program currentProgram) {
+        String structureName = (String) arguments.get("structure_name");
+        Number fieldOffsetNum = (Number) arguments.get("field_offset");
+        Number fieldLengthNum = (Number) arguments.get("field_length");
+        String fieldName = (String) arguments.get("field_name");
+        String comment = (String) arguments.get("comment");
+        Boolean allowOverwrite = (Boolean) arguments.get("allow_overwrite");
+        Boolean grow = (Boolean) arguments.get("grow");
+
+        if (structureName == null || structureName.isEmpty()) {
+            return McpSchema.CallToolResult.builder()
+                .addTextContent("structure_name parameter is required for name_gap action")
+                .build();
+        }
+        if (fieldOffsetNum == null) {
+            return McpSchema.CallToolResult.builder()
+                .addTextContent("field_offset parameter is required for name_gap action")
+                .build();
+        }
+        if (fieldLengthNum == null) {
+            return McpSchema.CallToolResult.builder()
+                .addTextContent("field_length parameter is required for name_gap action")
+                .build();
+        }
+        if (fieldName == null || fieldName.isEmpty()) {
+            return McpSchema.CallToolResult.builder()
+                .addTextContent("field_name parameter is required for name_gap action")
+                .build();
+        }
+
+        int fieldOffset = fieldOffsetNum.intValue();
+        int fieldLength = fieldLengthNum.intValue();
+        if (fieldOffset < 0 || fieldLength < 1) {
+            return McpSchema.CallToolResult.builder()
+                .addTextContent("field_offset must be >= 0 and field_length must be >= 1")
+                .build();
+        }
+
+        boolean shouldGrow = grow == null || grow;
+        boolean canOverwrite = allowOverwrite != null && allowOverwrite;
+
+        int txId = currentProgram.startTransaction("Name Structure Gap");
+        boolean committed = false;
+        try {
+            DataTypeManager dtm = currentProgram.getDataTypeManager();
+            Structure struct = findStructure(dtm, structureName);
+            if (struct == null) {
+                return McpSchema.CallToolResult.builder()
+                    .addTextContent("Structure '" + structureName + "' not found")
+                    .build();
+            }
+
+            if (shouldGrow && struct.getLength() < fieldOffset + fieldLength) {
+                int needed = (fieldOffset + fieldLength) - struct.getLength();
+                if (needed > 0) {
+                    struct.growStructure(needed);
+                }
+            }
+
+            int start = fieldOffset;
+            int endExclusive = fieldOffset + fieldLength;
+
+            if (!canOverwrite) {
+                for (DataTypeComponent comp : struct.getComponents()) {
+                    int compStart = comp.getOffset();
+                    int compEndExclusive = comp.getEndOffset() + 1;
+                    boolean overlaps = compStart < endExclusive && compEndExclusive > start;
+                    if (overlaps && !comp.isUndefined()) {
+                        return McpSchema.CallToolResult.builder()
+                            .addTextContent("Refusing to overwrite non-undefined component at +0x" +
+                                Integer.toHexString(comp.getOffset()) + " (" + comp.getDataType().getName() + "). " +
+                                "Pass allow_overwrite=true to force.")
+                            .build();
+                    }
+                }
+            }
+
+            DataType gapElem = UnsignedCharDataType.dataType;
+            DataType gapArray = new ArrayDataType(gapElem, fieldLength, gapElem.getLength());
+            struct.replaceAtOffset(fieldOffset, gapArray, gapArray.getLength(), fieldName, comment);
+
+            committed = true;
+            return McpSchema.CallToolResult.builder()
+                .addTextContent("Successfully named gap in structure '" + struct.getName() + "' at +0x" +
+                    Integer.toHexString(fieldOffset) + " (" + fieldLength + " bytes) as '" + fieldName + "'")
+                .build();
+
+        } catch (Exception e) {
+            String msg = "Error naming structure gap: " + e.getMessage();
+            Msg.error(this, msg, e);
+            return McpSchema.CallToolResult.builder()
+                .addTextContent(msg)
+                .build();
+        } finally {
+            currentProgram.endTransaction(txId, committed);
+        }
+    }
+
+    private DataType resolveDataType(DataTypeManager dtm, String typeName) {
+        if (typeName == null) {
+            return null;
+        }
+        String t = typeName.trim();
+        if (t.isEmpty()) {
+            return null;
+        }
+
+        // Direct path lookup (if caller provides a full path)
+        if (t.startsWith("/")) {
+            DataType byPath = dtm.getDataType(t);
+            if (byPath != null) {
+                return byPath;
+            }
+        }
+
+        // Common lookups
+        DataType dt = dtm.getDataType("/" + t);
+        if (dt == null) {
+            dt = dtm.getDataType(t);
+        }
+
+        if (dt != null) {
+            return dt;
+        }
+
+        // Search all types by name
+        List<DataType> allTypes = new ArrayList<>();
+        dtm.getAllDataTypes(allTypes);
+        for (DataType candidate : allTypes) {
+            if (candidate.getName().equals(t)) {
+                return candidate;
+            }
+        }
+        return null;
     }
 
     private Structure findStructure(DataTypeManager dtm, String structureName) {
