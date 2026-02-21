@@ -94,9 +94,9 @@ public class GhidrAssistMCPPlugin extends ProgramPlugin {
 	 * Apply new configuration from the UI.
 	 * Delegates to the singleton manager which handles server restart if needed.
 	 */
-	public void applyConfiguration(String host, int port, boolean enabled, Map<String, Boolean> toolStates) {
+	public void applyConfiguration(String host, int port, boolean enabled, boolean asyncEnabled, Map<String, Boolean> toolStates) {
 		if (manager != null) {
-			manager.applyConfiguration(host, port, enabled, toolStates);
+			manager.applyConfiguration(host, port, enabled, asyncEnabled, toolStates);
 		}
 	}
 	

@@ -310,10 +310,10 @@ public class GhidrAssistMCPManager {
     /**
      * Apply configuration changes.
      */
-    public void applyConfiguration(String host, int port, boolean enabled,
+    public void applyConfiguration(String host, int port, boolean enabled, boolean asyncEnabled,
                                    java.util.Map<String, Boolean> toolStates) {
         if (provider != null) {
-            provider.logMessage("Applying configuration: " + host + ":" + port + " enabled=" + enabled);
+            provider.logMessage("Applying configuration: " + host + ":" + port + " enabled=" + enabled + " async=" + asyncEnabled);
         }
 
         boolean needsRestart = false;
@@ -327,6 +327,11 @@ public class GhidrAssistMCPManager {
         if (enabled != serverEnabled) {
             serverEnabled = enabled;
             needsRestart = true;
+        }
+
+        // Update async execution setting
+        if (backend != null) {
+            backend.setAsyncExecutionEnabled(asyncEnabled);
         }
 
         // Update tool states
@@ -370,6 +375,7 @@ public class GhidrAssistMCPManager {
         currentHost = Preferences.getProperty("GhidrAssistMCP.Server Host", "localhost");
         String portStr = Preferences.getProperty("GhidrAssistMCP.Server Port", "8080");
         String enabledStr = Preferences.getProperty("GhidrAssistMCP.Server Enabled", "true");
+        String asyncEnabledStr = Preferences.getProperty("GhidrAssistMCP.Async Execution Enabled", "true");
 
         try {
             currentPort = Integer.parseInt(portStr);
@@ -380,10 +386,15 @@ public class GhidrAssistMCPManager {
             serverEnabled = true;
         }
 
-        Msg.info(this, "Loaded settings from Ghidra preferences: " + currentHost + ":" + currentPort + " enabled=" + serverEnabled);
+        boolean asyncEnabled = Boolean.parseBoolean(asyncEnabledStr);
+        if (backend != null) {
+            backend.setAsyncExecutionEnabled(asyncEnabled);
+        }
+
+        Msg.info(this, "Loaded settings from Ghidra preferences: " + currentHost + ":" + currentPort + " enabled=" + serverEnabled + " async=" + asyncEnabled);
 
         if (provider != null) {
-            provider.logMessage("Loaded configuration: " + currentHost + ":" + currentPort + " enabled=" + serverEnabled);
+            provider.logMessage("Loaded configuration: " + currentHost + ":" + currentPort + " enabled=" + serverEnabled + " async=" + asyncEnabled);
         }
     }
 
