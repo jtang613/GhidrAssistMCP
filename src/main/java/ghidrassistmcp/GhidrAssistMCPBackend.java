@@ -75,6 +75,7 @@ public class GhidrAssistMCPBackend implements McpBackend {
     private final Map<String, Boolean> toolEnabledStates = new ConcurrentHashMap<>();
     private final List<McpEventListener> eventListeners = new CopyOnWriteArrayList<>();
     private volatile GhidrAssistMCPManager manager;
+    private volatile boolean asyncExecutionEnabled = true;
     private final McpTaskManager taskManager;
     private final McpResourceRegistry resourceRegistry;
     private final McpPromptRegistry promptRegistry;
@@ -270,7 +271,7 @@ public class GhidrAssistMCPBackend implements McpBackend {
             }
 
             // Check if this is a long-running tool that should be executed asynchronously
-            if (tool.isLongRunning()) {
+            if (tool.isLongRunning() && asyncExecutionEnabled) {
                 return executeToolAsync(tool, toolName, arguments, targetProgram);
             }
 
@@ -685,6 +686,21 @@ public class GhidrAssistMCPBackend implements McpBackend {
         }
 
         return result;
+    }
+
+    /**
+     * Set whether async execution is enabled for long-running tools.
+     */
+    public void setAsyncExecutionEnabled(boolean enabled) {
+        this.asyncExecutionEnabled = enabled;
+        Msg.info(this, "Async tool execution " + (enabled ? "enabled" : "disabled"));
+    }
+
+    /**
+     * Check whether async execution is enabled for long-running tools.
+     */
+    public boolean isAsyncExecutionEnabled() {
+        return asyncExecutionEnabled;
     }
 
     /**
