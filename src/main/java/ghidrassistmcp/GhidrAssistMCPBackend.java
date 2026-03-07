@@ -469,7 +469,8 @@ public class GhidrAssistMCPBackend implements McpBackend {
      */
     private Program resolveTargetProgram(Map<String, Object> arguments) {
         if (manager == null) {
-            return null;
+            // Headless mode: no manager, fall back to getCurrentProgram()
+            return getCurrentProgram();
         }
 
         // Check if a specific program was requested
