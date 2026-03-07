@@ -6,7 +6,6 @@ bin/
 data/
 dist/
 build/
-ghidra_scripts/
 lib/
 os/
 lucene/
