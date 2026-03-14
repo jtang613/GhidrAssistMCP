@@ -10,9 +10,9 @@ GhidrAssistMCP bridges the gap between AI-powered analysis tools and Ghidra's co
 
 - **MCP Server Integration**: Full Model Context Protocol server implementation using official SDK
 - **Dual HTTP Transports**: Supports SSE and Streamable HTTP transports for maximum client compatibility
-- **34 Built-in Tools**: Comprehensive set of analysis tools with action-based consolidation for cleaner APIs
-- **5 MCP Resources**: Static data resources for program info, functions, strings, imports, and exports
-- **5 MCP Prompts**: Pre-built analysis prompts for common reverse engineering tasks
+- **35 Built-in Tools**: Comprehensive set of analysis tools with action-based consolidation for cleaner APIs
+- **6 MCP Resources**: Static data resources for program info, functions, strings, imports, exports, and segments
+- **7 MCP Prompts**: Pre-built analysis prompts for common reverse engineering tasks
 - **Result Caching**: Intelligent caching system to improve performance for repeated queries
 - **Async Task Support**: Long-running operations execute asynchronously with task management
 - **Multi-Program Support**: Work with multiple open programs simultaneously using `program_name` parameter
@@ -98,41 +98,55 @@ Shameless self-promotion: [GhidrAssist](https://github.com/jtang613/GhidrAssist)
 
 The Configuration tab allows you to:
 
-- **View all available tools** (34 total)
+- **View all available tools** (35 total)
 - **Enable/disable individual tools** using checkboxes
 - **Save configuration** to persist across sessions
 - **Monitor tool status** in real-time
 
 ## Available Tools
 
-GhidrAssistMCP provides 34 tools organized into categories. Several tools use an action-based API pattern where a single tool provides multiple related operations.
+GhidrAssistMCP provides 35 tools organized into categories. Several tools use an action-based API pattern where a single tool provides multiple related operations.
 
-### Program & Data Listing
-
-| Tool | Description |
-| ---- | ----------- |
-| `get_program_info` | Get basic program information (name, architecture, compiler, etc.) |
-| `list_programs` | List all open programs across all CodeBrowser windows |
-| `list_functions` | List functions with optional pattern filtering and pagination |
-| `list_data` | List data definitions in the program |
-| `list_data_types` | List all available data types |
-| `list_strings` | List string references with optional filtering |
-| `list_imports` | List imported functions/symbols |
-| `list_exports` | List exported functions/symbols |
-| `list_segments` | List memory segments |
-| `list_namespaces` | List namespaces in the program |
-| `list_relocations` | List relocation entries |
-
-### Function & Code Analysis
+### Binary & Program Management
 
 | Tool | Description |
 | ---- | ----------- |
-| `get_function_info` | Get detailed function information (signature, variables, etc.) |
+| `get_binary_info` | Get basic program information (name, architecture, compiler, etc.) |
+| `list_binaries` | List all open programs across all CodeBrowser windows |
+
+### Function Discovery & Analysis
+
+| Tool | Description |
+| ---- | ----------- |
+| `get_functions` | List functions with optional pattern filtering and pagination |
+| `search_functions_by_name` | Find functions by name pattern |
+| `get_function_statistics` | Comprehensive statistics for all functions |
+| `analyze_function` | Get detailed function information (signature, variables, etc.) |
 | `get_current_function` | Get function at current cursor position |
-| `get_current_address` | Get current cursor address |
-| `get_hexdump` | Get hexdump of memory at specific address |
-| `get_call_graph` | Get call graph for a function (callers and callees) |
+| `get_function_stack_layout` | Get stack frame layout with variable offsets |
 | `get_basic_blocks` | Get basic block information for a function |
+
+### Binary Information
+
+| Tool | Description |
+| ---- | ----------- |
+| `get_imports` | List imported functions/symbols |
+| `get_exports` | List exported functions/symbols |
+| `get_strings` | List string references with optional filtering |
+| `search_strings` | Search strings by pattern |
+| `get_segments` | List memory segments |
+| `get_namespaces` | List namespaces in the program |
+| `get_relocations` | List relocation entries |
+| `get_entry_points` | List all binary entry points |
+
+### Data Analysis
+
+| Tool | Description |
+| ---- | ----------- |
+| `get_data_vars` | List data definitions in the program |
+| `get_data_at` | Get hexdump/data at a specific address |
+| `create_data_var` | Define data variables at addresses |
+| `get_current_address` | Get current cursor address |
 
 ### Consolidated Tools
 
@@ -145,7 +159,7 @@ These tools bundle related operations behind a discriminator parameter (e.g., `a
 | `format` | `decompiler`, `disassembly`, `pcode` | Output format |
 | `raw` | boolean | Only affects `format: "pcode"` (raw pcode ops vs grouped by basic blocks) |
 
-#### `class` - Class Operations Tool
+#### `classes` - Class Operations Tool
 
 | Action | Description |
 | ------ | ----------- |
@@ -158,6 +172,7 @@ These tools bundle related operations behind a discriminator parameter (e.g., `a
 | --------- | ----------- |
 | `address` | Find all references to/from a specific address |
 | `function` | Find all cross-references for a function |
+| `include_calls` | Include callers/callees (replaces separate call graph tool) |
 
 #### `struct` - Structure Operations Tool
 
@@ -178,30 +193,44 @@ These tools bundle related operations behind a discriminator parameter (e.g., `a
 | --------- | ------ | ----------- |
 | `target_type` | `function`, `data`, `variable` | What kind of symbol to rename |
 
-#### `set_comment` - Comment Tool
+#### `batch_rename` - Batch Symbol Renaming Tool
 
-| Parameter | Values | Description |
-| --------- | ------ | ----------- |
-| `target` | `function`, `address` | Where to set the comment |
-| `comment_type` | `eol`, `pre`, `post`, `plate`, `repeatable` | Comment type for `target: "address"` (default `eol`) |
+Rename multiple symbols in one operation.
+
+#### `comments` - Comment Management Tool
+
+| Action | Description |
+| ------ | ----------- |
+| `get` | Get comment at an address |
+| `set` | Set a comment at an address or on a function |
+| `list` | List all comments |
+| `remove` | Remove a comment |
+
+#### `variables` - Variable Management Tool
+
+| Action | Description |
+| ------ | ----------- |
+| `list` | List local variables for a function |
+| `rename` | Rename a local variable |
+| `set_type` | Set data type for a local variable |
+| `set_prototype` | Set function signature/prototype |
+
+#### `types` - Type Management Tool
+
+| Action | Description |
+| ------ | ----------- |
+| `list` | List all available data types |
+| `get_info` | Get detailed data type information and structure definitions |
+| `set` | Set data type at a specific address |
+| `delete` | Delete a data type by name (optionally scoped by `category`) |
 
 #### `bookmarks` - Bookmark Management Tool
 
 | Action | Description |
 | ------ | ----------- |
 | `list` | List all bookmarks |
-| `add` | Add a new bookmark |
-| `delete` | Delete a bookmark |
-
-### Type & Prototype Tools
-
-| Tool | Description |
-| ----- | ----------- |
-| `get_data_type` | Get detailed data type information and structure definitions |
-| `delete_data_type` | Delete a data type by name (optionally scoped by `category`) |
-| `set_data_type` | Set data type at a specific address |
-| `set_function_prototype` | Set function signature/prototype |
-| `set_local_variable_type` | Set data type for local variables |
+| `set` | Set a new bookmark |
+| `remove` | Remove a bookmark |
 
 ### Search Tools
 
@@ -221,15 +250,16 @@ Long-running operations (decompilation, structure analysis, field xrefs) execute
 
 ## MCP Resources
 
-GhidrAssistMCP exposes 5 static resources that can be read by MCP clients:
+GhidrAssistMCP exposes 6 static resources that can be read by MCP clients:
 
 | Resource URI | Description |
 | ------------ | ----------- |
-| `ghidra://program/info` | Basic program information |
-| `ghidra://program/functions` | List of all functions |
-| `ghidra://program/strings` | String references |
-| `ghidra://program/imports` | Imported symbols |
-| `ghidra://program/exports` | Exported symbols |
+| `ghidra://program/{name}/info` | Basic program information |
+| `ghidra://program/{name}/functions` | List of all functions |
+| `ghidra://program/{name}/strings` | String references |
+| `ghidra://program/{name}/imports` | Imported symbols |
+| `ghidra://program/{name}/exports` | Exported symbols |
+| `ghidra://program/{name}/segments` | Memory segments |
 
 ## MCP Prompts
 
@@ -242,6 +272,8 @@ Pre-built prompts for common analysis tasks:
 | `document_function` | Generate function documentation |
 | `trace_data_flow` | Data flow analysis prompt |
 | `trace_network_data` | Trace network send/recv call stacks for protocol analysis and network vulnerability identification |
+| `compare_functions` | Diff two functions for similarity analysis |
+| `reverse_engineer_struct` | Recover structure definitions from usage patterns |
 
 ## Usage Examples
 
@@ -251,7 +283,7 @@ Pre-built prompts for common analysis tasks:
 {
   "method": "tools/call",
   "params": {
-    "name": "get_program_info"
+    "name": "get_binary_info"
   }
 }
 ```
@@ -262,7 +294,7 @@ Pre-built prompts for common analysis tasks:
 {
   "method": "tools/call",
   "params": {
-    "name": "list_functions",
+    "name": "get_functions",
     "arguments": {
       "pattern": "init",
       "case_sensitive": false,
@@ -293,7 +325,7 @@ Pre-built prompts for common analysis tasks:
 {
   "method": "tools/call",
   "params": {
-    "name": "class",
+    "name": "classes",
     "arguments": {
       "action": "get_info",
       "class_name": "MyClass"
@@ -308,7 +340,7 @@ Pre-built prompts for common analysis tasks:
 {
   "method": "tools/call",
   "params": {
-    "name": "class",
+    "name": "classes",
     "arguments": {
       "action": "list",
       "pattern": "Socket",
@@ -358,8 +390,9 @@ If multiple types share the same name across categories, pass `category` (or pas
 {
   "method": "tools/call",
   "params": {
-    "name": "delete_data_type",
+    "name": "types",
     "arguments": {
+      "action": "delete",
       "name": "MyStruct",
       "category": "/mytypes"
     }
@@ -391,7 +424,7 @@ When working with multiple open programs, first list them:
 {
   "method": "tools/call",
   "params": {
-    "name": "list_programs"
+    "name": "list_binaries"
   }
 }
 ```
@@ -402,7 +435,7 @@ Then specify which program to target using `program_name`:
 {
   "method": "tools/call",
   "params": {
-    "name": "list_functions",
+    "name": "get_functions",
     "arguments": {
       "program_name": "target_binary.exe",
       "limit": 10
@@ -473,19 +506,22 @@ GhidrAssistMCP/
 ├── tasks/                    # Async task management
 │   ├── McpTaskManager.java
 │   └── McpTask.java
-├── resources/                # MCP Resources (5 total)
+├── resources/                # MCP Resources (6 total)
 │   ├── ProgramInfoResource.java
 │   ├── FunctionListResource.java
 │   ├── StringsResource.java
 │   ├── ImportsResource.java
-│   └── ExportsResource.java
-├── prompts/                  # MCP Prompts (5 total)
+│   ├── ExportsResource.java
+│   └── SegmentsResource.java
+├── prompts/                  # MCP Prompts (7 total)
 │   ├── AnalyzeFunctionPrompt.java
 │   ├── IdentifyVulnerabilityPrompt.java
 │   ├── DocumentFunctionPrompt.java
 │   ├── TraceDataFlowPrompt.java
-│   └── TraceNetworkDataPrompt.java
-└── tools/                    # MCP Tools (34 total)
+│   ├── TraceNetworkDataPrompt.java
+│   ├── CompareFunctionsPrompt.java
+│   └── ReverseEngineerStructPrompt.java
+└── tools/                    # MCP Tools (35 total)
     ├── Consolidated action-based tools
     ├── Analysis tools
     ├── Modification tools
@@ -497,11 +533,14 @@ GhidrAssistMCP/
 **Consolidated Tools**: Related operations are consolidated into single tools with a discriminator parameter:
 
 - `get_code`: `format: decompiler|disassembly|pcode`
-- `class`: `action: list|get_info`
-- `struct`: `action: create|modify|auto_create|rename_field|field_xrefs`
+- `classes`: `action: list|get_info`
+- `struct`: `action: create|modify|merge|set_field|name_gap|auto_create|rename_field|field_xrefs`
 - `rename_symbol`: `target_type: function|data|variable`
-- `set_comment`: `target: function|address`
-- `bookmarks`: `action: list|add|delete`
+- `comments`: `action: get|set|list|remove`
+- `variables`: `action: list|rename|set_type|set_prototype`
+- `types`: `action: list|get_info|set|delete`
+- `bookmarks`: `action: list|set|remove`
+- `xrefs`: `address|function` with `include_calls` parameter
 
 **Tool Interface Methods**:
 
@@ -542,7 +581,7 @@ src/main/java/ghidrassistmcp/
 ├── tasks/                         # Async task system
 ├── resources/                     # MCP resources
 ├── prompts/                       # MCP prompts
-└── tools/                         # Tool implementations (34 files)
+└── tools/                         # Tool implementations (35 files)
 ```
 
 ### Adding New Tools
