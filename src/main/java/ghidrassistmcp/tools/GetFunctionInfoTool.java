@@ -22,7 +22,7 @@ public class GetFunctionInfoTool implements McpTool {
 
     @Override
     public String getName() {
-        return "get_function_info";
+        return "analyze_function";
     }
     
     @Override

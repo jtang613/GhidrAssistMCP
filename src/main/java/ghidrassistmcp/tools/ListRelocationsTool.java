@@ -25,7 +25,7 @@ public class ListRelocationsTool implements McpTool {
 
     @Override
     public String getName() {
-        return "list_relocations";
+        return "get_relocations";
     }
 
     @Override

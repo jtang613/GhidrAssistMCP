@@ -4,6 +4,7 @@
  */
 package ghidrassistmcp.tools;
 
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -13,6 +14,7 @@ import ghidra.program.model.listing.Function;
 import ghidra.program.model.listing.Program;
 import ghidra.program.model.symbol.Reference;
 import ghidra.program.model.symbol.ReferenceIterator;
+import ghidra.util.task.TaskMonitor;
 import ghidrassistmcp.McpTool;
 import io.modelcontextprotocol.spec.McpSchema;
 
@@ -34,33 +36,44 @@ public class XrefsTool implements McpTool {
 
     @Override
     public String getDescription() {
-        return "Get cross-references to/from an address or function (direction: to, from, or both)";
+        return "Get cross-references to/from an address or function (direction: to, from, or both). " +
+               "Supports call graph traversal with depth parameter for function-based queries.";
     }
 
     @Override
     public McpSchema.JsonSchema getInputSchema() {
         return new McpSchema.JsonSchema("object",
-            Map.of(
-                "address", Map.of(
+            Map.ofEntries(
+                Map.entry("address", Map.of(
                     "type", "string",
                     "description", "Optional: address to find xrefs for (either address or function must be provided)"
-                ),
-                "function", Map.of(
+                )),
+                Map.entry("function", Map.of(
                     "type", "string",
                     "description", "Optional: function name to find callers/callees xrefs for (either address or function must be provided)"
-                ),
-                "direction", Map.of(
+                )),
+                Map.entry("direction", Map.of(
                     "type", "string",
                     "description", "Direction of cross-references to return",
                     "enum", List.of("to", "from", "both"),
                     "default", "both"
-                ),
-                "limit", Map.of(
+                )),
+                Map.entry("include_calls", Map.of(
+                    "type", "boolean",
+                    "description", "Optional: if true and function is specified, include recursive call graph (default false)",
+                    "default", false
+                )),
+                Map.entry("depth", Map.of(
+                    "type", "integer",
+                    "description", "Optional: max call graph depth when include_calls is true (default 2, max 5)",
+                    "default", 2
+                )),
+                Map.entry("limit", Map.of(
                     "type", "integer",
                     "description", "Maximum number of references to return (default 100)"
-                )
+                ))
             ),
-            List.of(), null, null, null);  // Neither address nor function is strictly required, but one must be provided
+            List.of(), null, null, null);
     }
 
     @Override
@@ -98,8 +111,21 @@ public class XrefsTool implements McpTool {
                 .build();
         }
 
+        // Check for call graph mode
+        boolean includeCalls = false;
+        int depth = 2;
+        if (arguments.get("include_calls") instanceof Boolean) {
+            includeCalls = (Boolean) arguments.get("include_calls");
+        }
+        if (arguments.get("depth") instanceof Number) {
+            depth = Math.min(((Number) arguments.get("depth")).intValue(), 5);
+        }
+
         // If function is provided, use function-based xrefs
         if (functionName != null && !functionName.isEmpty()) {
+            if (includeCalls) {
+                return getCallGraph(currentProgram, functionName, direction, depth);
+            }
             return getFunctionXrefs(currentProgram, functionName, direction, limit);
         }
 
@@ -249,6 +275,101 @@ public class XrefsTool implements McpTool {
         return McpSchema.CallToolResult.builder()
             .addTextContent(result.toString())
             .build();
+    }
+
+    /**
+     * Get call graph for a function with recursive depth traversal.
+     * Absorbs functionality from the former GetCallGraphTool.
+     */
+    private McpSchema.CallToolResult getCallGraph(Program program, String functionName, String direction, int depth) {
+        Function function = findFunctionByName(program, functionName);
+        if (function == null) {
+            // Try as address
+            try {
+                Address addr = program.getAddressFactory().getAddress(functionName);
+                if (addr != null) {
+                    function = program.getFunctionManager().getFunctionAt(addr);
+                }
+            } catch (Exception e) {
+                // Not an address
+            }
+        }
+        if (function == null) {
+            return McpSchema.CallToolResult.builder()
+                .addTextContent("Function not found: " + functionName)
+                .build();
+        }
+
+        StringBuilder result = new StringBuilder();
+        result.append("Call Graph for: ").append(function.getName())
+              .append(" @ ").append(function.getEntryPoint()).append("\n\n");
+
+        Set<String> visited = new HashSet<>();
+
+        if (direction.equals("to") || direction.equals("both")) {
+            result.append("## Calling Functions (Who calls this):\n");
+            buildCallerTree(function, depth, 0, visited, result);
+            result.append("\n");
+        }
+
+        visited.clear();
+
+        if (direction.equals("from") || direction.equals("both")) {
+            result.append("## Called Functions (What this calls):\n");
+            buildCalleeTree(function, depth, 0, visited, result);
+        }
+
+        return McpSchema.CallToolResult.builder()
+            .addTextContent(result.toString())
+            .build();
+    }
+
+    private void buildCallerTree(Function function, int maxDepth, int currentDepth,
+                                  Set<String> visited, StringBuilder result) {
+        String indent = "  ".repeat(currentDepth);
+        String key = function.getEntryPoint().toString();
+
+        if (visited.contains(key)) {
+            result.append(indent).append("- ").append(function.getName())
+                  .append(" @ ").append(function.getEntryPoint())
+                  .append(" (recursive/already visited)\n");
+            return;
+        }
+
+        visited.add(key);
+        result.append(indent).append("- ").append(function.getName())
+              .append(" @ ").append(function.getEntryPoint()).append("\n");
+
+        if (currentDepth < maxDepth) {
+            Set<Function> callers = function.getCallingFunctions(TaskMonitor.DUMMY);
+            for (Function caller : callers) {
+                buildCallerTree(caller, maxDepth, currentDepth + 1, visited, result);
+            }
+        }
+    }
+
+    private void buildCalleeTree(Function function, int maxDepth, int currentDepth,
+                                  Set<String> visited, StringBuilder result) {
+        String indent = "  ".repeat(currentDepth);
+        String key = function.getEntryPoint().toString();
+
+        if (visited.contains(key)) {
+            result.append(indent).append("- ").append(function.getName())
+                  .append(" @ ").append(function.getEntryPoint())
+                  .append(" (recursive/already visited)\n");
+            return;
+        }
+
+        visited.add(key);
+        result.append(indent).append("- ").append(function.getName())
+              .append(" @ ").append(function.getEntryPoint()).append("\n");
+
+        if (currentDepth < maxDepth) {
+            Set<Function> callees = function.getCalledFunctions(TaskMonitor.DUMMY);
+            for (Function callee : callees) {
+                buildCalleeTree(callee, maxDepth, currentDepth + 1, visited, result);
+            }
+        }
     }
 
     /**

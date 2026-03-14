@@ -18,7 +18,7 @@ public class ListSegmentsTool implements McpTool {
     
     @Override
     public String getName() {
-        return "list_segments";
+        return "get_segments";
     }
     
     @Override

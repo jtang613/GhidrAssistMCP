@@ -20,7 +20,7 @@ public class ListExportsTool implements McpTool {
     
     @Override
     public String getName() {
-        return "list_exports";
+        return "get_exports";
     }
     
     @Override

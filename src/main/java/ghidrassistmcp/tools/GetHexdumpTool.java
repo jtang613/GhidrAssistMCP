@@ -23,7 +23,7 @@ public class GetHexdumpTool implements McpTool {
 
     @Override
     public String getName() {
-        return "get_hexdump";
+        return "get_data_at";
     }
 
     @Override

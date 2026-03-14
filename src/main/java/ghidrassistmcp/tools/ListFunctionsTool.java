@@ -27,7 +27,7 @@ public class ListFunctionsTool implements McpTool {
 
     @Override
     public String getName() {
-        return "list_functions";
+        return "get_functions";
     }
 
     @Override

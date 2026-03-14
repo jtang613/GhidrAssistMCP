@@ -48,7 +48,7 @@ public class BookmarksTool implements McpTool {
                 "action", Map.of(
                     "type", "string",
                     "description", "Bookmark operation to perform",
-                    "enum", List.of("list", "add", "delete")
+                    "enum", List.of("list", "set", "remove")
                 ),
                 "address", Map.of(
                     "type", "string",
@@ -92,15 +92,15 @@ public class BookmarksTool implements McpTool {
             case "list":
                 return listBookmarks(bookmarkManager, arguments);
 
-            case "add":
+            case "set":
                 return addBookmark(currentProgram, bookmarkManager, arguments);
 
-            case "delete":
+            case "remove":
                 return deleteBookmark(currentProgram, bookmarkManager, arguments);
 
             default:
                 return McpSchema.CallToolResult.builder()
-                    .addTextContent("Invalid action: " + action + ". Use 'list', 'add', or 'delete'")
+                    .addTextContent("Invalid action: " + action + ". Use 'list', 'set', or 'remove'")
                     .build();
         }
     }

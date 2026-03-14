@@ -17,7 +17,7 @@ public class ProgramInfoTool implements McpTool {
     
     @Override
     public String getName() {
-        return "get_program_info";
+        return "get_binary_info";
     }
     
     @Override

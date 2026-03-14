@@ -32,18 +32,19 @@ import ghidrassistmcp.tasks.McpTaskManager;
 import ghidrassistmcp.tools.BookmarksTool;
 import ghidrassistmcp.tools.CancelTaskTool;
 import ghidrassistmcp.tools.ClassTool;
-import ghidrassistmcp.tools.DeleteDataTypeTool;
+import ghidrassistmcp.tools.CommentsTool;
+import ghidrassistmcp.tools.CreateDataVarTool;
 import ghidrassistmcp.tools.GetBasicBlocksTool;
-import ghidrassistmcp.tools.GetCallGraphTool;
 import ghidrassistmcp.tools.GetCodeTool;
 import ghidrassistmcp.tools.GetCurrentAddressTool;
 import ghidrassistmcp.tools.GetCurrentFunctionTool;
-import ghidrassistmcp.tools.GetDataTypeTool;
+import ghidrassistmcp.tools.GetEntryPointsTool;
 import ghidrassistmcp.tools.GetFunctionInfoTool;
+import ghidrassistmcp.tools.GetFunctionStackLayoutTool;
+import ghidrassistmcp.tools.GetFunctionStatisticsTool;
 import ghidrassistmcp.tools.GetHexdumpTool;
 import ghidrassistmcp.tools.GetTaskStatusTool;
 import ghidrassistmcp.tools.ListDataTool;
-import ghidrassistmcp.tools.ListDataTypesTool;
 import ghidrassistmcp.tools.ListExportsTool;
 import ghidrassistmcp.tools.ListProgramsTool;
 import ghidrassistmcp.tools.ListFunctionsTool;
@@ -57,11 +58,11 @@ import ghidrassistmcp.tools.ProgramInfoTool;
 import ghidrassistmcp.tools.RenameSymbolBatchTool;
 import ghidrassistmcp.tools.RenameSymbolTool;
 import ghidrassistmcp.tools.SearchBytesTool;
-import ghidrassistmcp.tools.SetCommentTool;
-import ghidrassistmcp.tools.SetDataTypeTool;
-import ghidrassistmcp.tools.SetFunctionPrototypeTool;
-import ghidrassistmcp.tools.SetLocalVariableTypeTool;
+import ghidrassistmcp.tools.SearchFunctionsByNameTool;
+import ghidrassistmcp.tools.SearchStringsTool;
 import ghidrassistmcp.tools.StructTool;
+import ghidrassistmcp.tools.TypesTool;
+import ghidrassistmcp.tools.VariablesTool;
 import ghidrassistmcp.tools.XrefsTool;
 import io.modelcontextprotocol.spec.McpSchema;
 
@@ -96,45 +97,50 @@ public class GhidrAssistMCPBackend implements McpBackend {
         // Initialize result cache
         this.cache = new McpCache();
 
-        // Register built-in tools
-        registerTool(new ProgramInfoTool());
-        registerTool(new ListFunctionsTool());
-        registerTool(new GetFunctionInfoTool());
-        registerTool(new ListSegmentsTool());
-        registerTool(new ListImportsTool());
-        registerTool(new ListExportsTool());
-        registerTool(new ListStringsTool());
+        // Register built-in tools (renamed: list_* → get_*, etc.)
+        registerTool(new ProgramInfoTool());         // get_binary_info
+        registerTool(new ListProgramsTool());        // list_binaries
+        registerTool(new ListFunctionsTool());       // get_functions
+        registerTool(new GetFunctionInfoTool());     // analyze_function
+        registerTool(new ListSegmentsTool());        // get_segments
+        registerTool(new ListImportsTool());         // get_imports
+        registerTool(new ListExportsTool());         // get_exports
+        registerTool(new ListStringsTool());         // get_strings
+        registerTool(new ListDataTool());            // get_data_vars
+        registerTool(new ListNamespacesTool());       // get_namespaces
+        registerTool(new ListRelocationsTool());     // get_relocations
         registerTool(new GetCurrentAddressTool());
-        registerTool(new GetHexdumpTool());
         registerTool(new GetCurrentFunctionTool());
-        registerTool(new GetDataTypeTool());
-        registerTool(new DeleteDataTypeTool());
-        registerTool(new ListDataTool());
-        registerTool(new ListDataTypesTool());
-        registerTool(new ListNamespacesTool());
-        registerTool(new ListProgramsTool());
-        registerTool(new ClassTool());
-        registerTool(new SetFunctionPrototypeTool());
-        registerTool(new SetLocalVariableTypeTool());
-        registerTool(new SetDataTypeTool());
+        registerTool(new GetHexdumpTool());          // get_data_at
+
+        // Register consolidated tools (replace individual tools)
+        registerTool(new CommentsTool());            // comments (replaces set_comment)
+        registerTool(new VariablesTool());           // variables (replaces set_local_variable_type + set_function_prototype)
+        registerTool(new TypesTool());               // types (replaces get/set/delete/list_data_type[s])
+        registerTool(new XrefsTool());               // xrefs (absorbs get_call_graph)
+        registerTool(new StructTool());              // struct (advanced struct operations)
+
+        // Register standalone tools
+        registerTool(new GetCodeTool());
+        registerTool(new GetBasicBlocksTool());
+        registerTool(new RenameSymbolTool());
+        registerTool(new RenameSymbolBatchTool());   // batch_rename
+        registerTool(new SearchBytesTool());
+        registerTool(new BookmarksTool());           // bookmarks (actions: list/set/remove)
+        registerTool(new ClassTool());               // classes
+
+        // Register new tools (Phase 4 — feature parity)
+        registerTool(new SearchFunctionsByNameTool());
+        registerTool(new GetFunctionStatisticsTool());
+        registerTool(new GetFunctionStackLayoutTool());
+        registerTool(new SearchStringsTool());
+        registerTool(new CreateDataVarTool());
+        registerTool(new GetEntryPointsTool());
 
         // Register async task management tools
         registerTool(new GetTaskStatusTool());
         registerTool(new CancelTaskTool());
         registerTool(new ListTasksTool());
-
-        // Register consolidated and advanced tools
-        registerTool(new GetCodeTool());
-        registerTool(new SetCommentTool());
-        registerTool(new RenameSymbolTool());
-        registerTool(new RenameSymbolBatchTool());
-        registerTool(new XrefsTool());
-        registerTool(new StructTool());
-        registerTool(new GetCallGraphTool());
-        registerTool(new SearchBytesTool());
-        registerTool(new BookmarksTool());
-        registerTool(new GetBasicBlocksTool());
-        registerTool(new ListRelocationsTool());
 
         Msg.info(this, "GhidrAssistMCP Backend initialized with " + tools.size() + " tools");
     }
@@ -359,6 +365,7 @@ public class GhidrAssistMCPBackend implements McpBackend {
         resourceRegistry.registerResource(new StringsResource());
         resourceRegistry.registerResource(new ImportsResource());
         resourceRegistry.registerResource(new ExportsResource());
+        resourceRegistry.registerResource(new ghidrassistmcp.resources.SegmentsResource());
         Msg.info(this, "Registered " + resourceRegistry.getResourceCount() + " MCP resources");
     }
 
@@ -371,6 +378,8 @@ public class GhidrAssistMCPBackend implements McpBackend {
         promptRegistry.registerPrompt(new DocumentFunctionPrompt());
         promptRegistry.registerPrompt(new TraceDataFlowPrompt());
         promptRegistry.registerPrompt(new TraceNetworkDataPrompt());
+        promptRegistry.registerPrompt(new ghidrassistmcp.prompts.CompareFunctionsPrompt());
+        promptRegistry.registerPrompt(new ghidrassistmcp.prompts.ReverseEngineerStructPrompt());
         Msg.info(this, "Registered " + promptRegistry.getPromptCount() + " MCP prompts");
     }
 

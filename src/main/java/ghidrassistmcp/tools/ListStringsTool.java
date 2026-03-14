@@ -24,7 +24,7 @@ public class ListStringsTool implements McpTool {
 
     @Override
     public String getName() {
-        return "list_strings";
+        return "get_strings";
     }
     
     @Override

@@ -25,7 +25,7 @@ public class ListImportsTool implements McpTool {
 
     @Override
     public String getName() {
-        return "list_imports";
+        return "get_imports";
     }
     
     @Override

@@ -20,7 +20,7 @@ public class ListNamespacesTool implements McpTool {
     
     @Override
     public String getName() {
-        return "list_namespaces";
+        return "get_namespaces";
     }
     
     @Override

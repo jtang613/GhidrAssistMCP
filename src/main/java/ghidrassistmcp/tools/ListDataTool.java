@@ -20,7 +20,7 @@ public class ListDataTool implements McpTool {
     
     @Override
     public String getName() {
-        return "list_data";
+        return "get_data_vars";
     }
     
     @Override

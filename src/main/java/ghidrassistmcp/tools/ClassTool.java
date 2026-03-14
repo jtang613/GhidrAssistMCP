@@ -138,7 +138,7 @@ public class ClassTool implements McpTool {
 
     @Override
     public String getName() {
-        return "class";
+        return "classes";
     }
 
     @Override

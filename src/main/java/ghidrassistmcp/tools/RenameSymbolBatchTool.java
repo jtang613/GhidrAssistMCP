@@ -41,7 +41,7 @@ public class RenameSymbolBatchTool implements McpTool {
 
     @Override
     public String getName() {
-        return "rename_symbol_batch";
+        return "batch_rename";
     }
 
     @Override

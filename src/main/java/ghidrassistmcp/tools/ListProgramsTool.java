@@ -20,7 +20,7 @@ public class ListProgramsTool implements McpTool {
 
     @Override
     public String getName() {
-        return "list_programs";
+        return "list_binaries";
     }
 
     @Override
