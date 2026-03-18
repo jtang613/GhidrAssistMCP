@@ -104,4 +104,16 @@ public interface McpTool {
     default boolean isCacheable() {
         return false;
     }
+
+    // ==================== Response Formatting ====================
+
+    /**
+     * Whether to prepend "[Context] Operating on: ..." to this tool's response.
+     * Tools returning structured JSON (arrays/objects) should return false
+     * to avoid corrupting the JSON with a non-JSON prefix.
+     * Default: true (preserves existing behavior for prose/markdown tools)
+     */
+    default boolean includeContext() {
+        return true;
+    }
 }

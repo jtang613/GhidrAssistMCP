@@ -13,6 +13,7 @@ import ghidra.program.model.listing.CommentType;
 import ghidra.program.model.listing.Function;
 import ghidra.program.model.listing.Program;
 import ghidrassistmcp.McpTool;
+import ghidrassistmcp.utils.McpUtils;
 import io.modelcontextprotocol.spec.McpSchema;
 
 /**
@@ -121,29 +122,30 @@ public class SetCommentTool implements McpTool {
                 .build();
         }
 
-        // Find the function
-        Function function = findFunctionByName(program, functionName);
+        // Find the function using optimized lookup
+        Function function = McpUtils.findFunction(program, functionName);
         if (function == null) {
             return McpSchema.CallToolResult.builder()
                 .addTextContent("Function not found: " + functionName)
                 .build();
         }
 
-        // Set the function comment within a transaction
+        // Set the function comment within a transaction using the standard Ghidra try-finally pattern
         int transactionID = program.startTransaction("Set Function Comment");
+        boolean success = false;
         try {
             function.setComment(comment);
-            program.endTransaction(transactionID, true);
-
+            success = true;
             return McpSchema.CallToolResult.builder()
                 .addTextContent("Successfully set decompiler comment on function '" + functionName +
                               "': \"" + comment + "\"")
                 .build();
         } catch (Exception e) {
-            program.endTransaction(transactionID, false);
             return McpSchema.CallToolResult.builder()
                 .addTextContent("Error setting function comment: " + e.getMessage())
                 .build();
+        } finally {
+            program.endTransaction(transactionID, success);
         }
     }
 
@@ -186,22 +188,23 @@ public class SetCommentTool implements McpTool {
                 .build();
         }
 
-        // Set the comment within a transaction
+        // Set the comment within a transaction using the standard Ghidra try-finally pattern
         int transactionID = program.startTransaction("Set Disassembly Comment");
+        boolean success = false;
         try {
             codeUnit.setComment(commentType, comment);
-            program.endTransaction(transactionID, true);
-
+            success = true;
             String commentTypeName = getCommentTypeName(commentType);
             return McpSchema.CallToolResult.builder()
                 .addTextContent("Successfully set " + commentTypeName + " comment at " + addressStr +
                               ": \"" + comment + "\"")
                 .build();
         } catch (Exception e) {
-            program.endTransaction(transactionID, false);
             return McpSchema.CallToolResult.builder()
                 .addTextContent("Error setting comment: " + e.getMessage())
                 .build();
+        } finally {
+            program.endTransaction(transactionID, success);
         }
     }
 
@@ -250,20 +253,5 @@ public class SetCommentTool implements McpTool {
             default:
                 return "EOL";
         }
-    }
-
-    /**
-     * Find a function by name.
-     */
-    private Function findFunctionByName(Program program, String functionName) {
-        var functionManager = program.getFunctionManager();
-        var functions = functionManager.getFunctions(true);
-
-        for (Function function : functions) {
-            if (function.getName().equals(functionName)) {
-                return function;
-            }
-        }
-        return null;
     }
 }
