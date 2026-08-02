@@ -67,11 +67,23 @@ public class McpTaskManager {
     }
 
     public McpTask submitTask(String toolName, Map<String, Object> arguments,
+                               McpProgramContext programContext,
+                               Supplier<McpSchema.CallToolResult> taskExecutor) {
+        return submitTask(toolName, arguments, programContext, task -> taskExecutor.get());
+    }
+
+    public McpTask submitTask(String toolName, Map<String, Object> arguments,
+                               Function<McpTask, McpSchema.CallToolResult> taskExecutor) {
+        return submitTask(toolName, arguments, McpProgramContext.empty(), taskExecutor);
+    }
+
+    public McpTask submitTask(String toolName, Map<String, Object> arguments,
+                               McpProgramContext programContext,
                                Function<McpTask, McpSchema.CallToolResult> taskExecutor) {
         // Clean up old tasks before creating new ones
         cleanupOldTasks();
 
-        McpTask task = new McpTask(toolName, arguments);
+        McpTask task = new McpTask(toolName, arguments, programContext);
         tasks.put(task.getTaskId(), task);
 
         Future<?> future = executor.submit(() -> {

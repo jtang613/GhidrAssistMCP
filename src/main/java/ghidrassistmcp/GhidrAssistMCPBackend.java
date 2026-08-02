@@ -9,7 +9,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.function.Function;
 
+import ghidra.framework.model.DomainFile;
 import ghidra.program.model.listing.Program;
 import ghidra.util.Msg;
 import ghidrassistmcp.cache.McpCache;
@@ -28,11 +30,12 @@ import ghidrassistmcp.resources.McpResource;
 import ghidrassistmcp.resources.McpResourceRegistry;
 import ghidrassistmcp.resources.ProgramInfoResource;
 import ghidrassistmcp.resources.StringsResource;
+import ghidrassistmcp.tasks.McpProgramContext;
+import ghidrassistmcp.tasks.McpTask;
+import ghidrassistmcp.tasks.McpTaskManager;
 import ghidrassistmcp.tools.AnalysisControlTool;
 import ghidrassistmcp.tools.AnalysisOptionsTool;
 import ghidrassistmcp.tools.AnalyzeProgramTool;
-import ghidrassistmcp.tasks.McpTask;
-import ghidrassistmcp.tasks.McpTaskManager;
 import ghidrassistmcp.tools.AssembleCodeTool;
 import ghidrassistmcp.tools.BookmarksTool;
 import ghidrassistmcp.tools.CancelTaskTool;
@@ -335,7 +338,8 @@ public class GhidrAssistMCPBackend implements McpBackend {
             McpSchema.CallToolResult result = tool.execute(arguments, targetProgram, this);
 
             // Add active context information to help LLM understand which binary is in focus
-            result = addActiveContextToResult(result, targetProgram);
+            result = addActiveContextToResult(result,
+                resolveResultProgramContext(tool, arguments, targetProgram));
 
             // Cache the result if tool is cacheable
             if (tool.isCacheable() && targetProgram != null) {
@@ -370,14 +374,14 @@ public class GhidrAssistMCPBackend implements McpBackend {
         // Create a reference to this backend for the async execution
         final GhidrAssistMCPBackend backend = this;
 
-        McpTask task = taskManager.submitTask(toolName, arguments, taskContext -> {
+        McpTask task = submitTask(toolName, arguments, targetProgram, taskContext -> {
             try {
                 McpSchema.CallToolResult result =
                     tool.execute(arguments, targetProgram, backend, taskContext);
-                // Store the raw result. The active-context banner is added once when the
-                // result is retrieved through get_task_status, which goes through the normal
-                // synchronous dispatch path. Adding it here too would duplicate the banner.
-                notifyToolResponse(toolName, result);
+                // Store the raw result, but retain context in the response shown to listeners.
+                // get_task_status decorates the stored result once using this task's snapshot.
+                notifyToolResponse(toolName,
+                    addActiveContextToResult(result, taskContext.getProgramContext()));
                 return result;
             } catch (Exception e) {
                 Msg.error(this, "Async tool execution failed: " + toolName, e);
@@ -401,6 +405,30 @@ public class GhidrAssistMCPBackend implements McpBackend {
      */
     public McpTaskManager getTaskManager() {
         return taskManager;
+    }
+
+    /**
+     * Submit an async task while retaining a stable snapshot of its target program.
+     */
+    public McpTask submitTask(String toolName, Map<String, Object> arguments,
+                              Program targetProgram,
+                              Function<McpTask, McpSchema.CallToolResult> taskExecutor) {
+        return taskManager.submitTask(toolName, arguments,
+            captureProgramContext(targetProgram), taskExecutor);
+    }
+
+    /**
+     * Capture program identity without retaining a live Program reference in the task manager.
+     */
+    public McpProgramContext captureProgramContext(Program program) {
+        if (program == null) {
+            return McpProgramContext.empty();
+        }
+
+        DomainFile domainFile = program.getDomainFile();
+        String projectPath = domainFile != null ? domainFile.getPathname() : null;
+        String fileId = domainFile != null ? domainFile.getFileID() : null;
+        return new McpProgramContext(program.getName(), projectPath, fileId);
     }
 
     /**
@@ -689,10 +717,30 @@ public class GhidrAssistMCPBackend implements McpBackend {
     }
     
     /**
+     * Resolve the context that belongs to a response. Completed task results retain the target
+     * from their original invocation rather than inheriting the program active while polling.
+     */
+    private McpProgramContext resolveResultProgramContext(McpTool tool,
+                                                           Map<String, Object> arguments,
+                                                           Program targetProgram) {
+        if (tool instanceof GetTaskStatusTool) {
+            Object taskId = arguments.get("task_id");
+            if (taskId instanceof String id) {
+                McpTask task = taskManager.getTask(id);
+                if (task != null) {
+                    return task.getProgramContext();
+                }
+            }
+        }
+        return captureProgramContext(targetProgram);
+    }
+
+    /**
      * Add active context information to tool results to help LLM understand which binary is in focus.
      * This prepends context metadata to the first text content in the result.
      */
-    private McpSchema.CallToolResult addActiveContextToResult(McpSchema.CallToolResult result, Program targetProgram) {
+    private McpSchema.CallToolResult addActiveContextToResult(McpSchema.CallToolResult result,
+                                                               McpProgramContext targetProgram) {
         if (result == null || result.content() == null || result.content().isEmpty()) {
             return result;
         }
@@ -701,20 +749,21 @@ public class GhidrAssistMCPBackend implements McpBackend {
         StringBuilder contextInfo = new StringBuilder();
 
         // Get the current active program from manager
-        Program activeProgram = getCurrentProgram();
+        McpProgramContext activeProgram = captureProgramContext(getCurrentProgram());
 
         // Add context header
         contextInfo.append("[Context] ");
 
-        if (targetProgram != null) {
-            contextInfo.append("Operating on: ").append(targetProgram.getName());
+        if (targetProgram.hasProgram()) {
+            contextInfo.append("Operating on: ").append(targetProgram.displayName());
 
             // If active program is different, mention it
-            if (activeProgram != null && !activeProgram.equals(targetProgram)) {
-                contextInfo.append(" | Active window: ").append(activeProgram.getName());
+            if (activeProgram.hasProgram() &&
+                    !targetProgram.identifiesSameProgram(activeProgram)) {
+                contextInfo.append(" | Active window: ").append(activeProgram.displayName());
             }
-        } else if (activeProgram != null) {
-            contextInfo.append("Active window: ").append(activeProgram.getName());
+        } else if (activeProgram.hasProgram()) {
+            contextInfo.append("Active window: ").append(activeProgram.displayName());
         } else {
             contextInfo.append("No program currently active");
         }

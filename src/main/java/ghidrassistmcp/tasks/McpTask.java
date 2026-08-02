@@ -28,6 +28,7 @@ public class McpTask {
     private final String taskId;
     private final String toolName;
     private final Map<String, Object> arguments;
+    private final McpProgramContext programContext;
     private final Instant createdAt;
     private volatile Status status;
     private volatile Instant startedAt;
@@ -41,9 +42,20 @@ public class McpTask {
      * Create a new task
      */
     public McpTask(String toolName, Map<String, Object> arguments) {
+        this(toolName, arguments, McpProgramContext.empty());
+    }
+
+    /**
+     * Create a new task with an immutable snapshot of its target program.
+     */
+    public McpTask(String toolName, Map<String, Object> arguments,
+                   McpProgramContext programContext) {
         this.taskId = UUID.randomUUID().toString();
         this.toolName = toolName;
         this.arguments = arguments;
+        this.programContext = programContext != null
+                ? programContext
+                : McpProgramContext.empty();
         this.createdAt = Instant.now();
         this.status = Status.PENDING;
         this.progressPercent = 0;
@@ -62,6 +74,10 @@ public class McpTask {
 
     public Map<String, Object> getArguments() {
         return arguments;
+    }
+
+    public McpProgramContext getProgramContext() {
+        return programContext;
     }
 
     public Instant getCreatedAt() {

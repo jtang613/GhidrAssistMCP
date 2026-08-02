@@ -272,8 +272,9 @@ public class GhidraScriptsTool implements McpTool {
     private McpSchema.CallToolResult submitRun(Map<String, Object> arguments, Program currentProgram,
                                                GhidrAssistMCPBackend backend) {
         if (backend != null && backend.getTaskManager() != null) {
-            McpTask task = backend.getTaskManager().submitTask(
-                getName(), arguments, () -> runScript(arguments, currentProgram, backend));
+            McpTask task = backend.submitTask(
+                getName(), arguments, currentProgram,
+                taskContext -> runScript(arguments, currentProgram, backend));
             return textResult("Script task submitted: " + task.getTaskId() +
                 "\nUse get_task_status with this task_id to retrieve the result.");
         }

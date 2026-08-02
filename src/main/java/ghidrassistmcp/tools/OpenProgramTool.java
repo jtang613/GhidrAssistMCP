@@ -248,8 +248,8 @@ public class OpenProgramTool implements McpTool {
         }
 
         AnalyzeProgramTool analyzeTool = new AnalyzeProgramTool();
-        McpTask task = backend.getTaskManager().submitTask(
-            analyzeTool.getName(), taskArgs,
+        McpTask task = backend.submitTask(
+            analyzeTool.getName(), taskArgs, program,
             taskContext -> analyzeTool.execute(taskArgs, program, backend, taskContext));
 
         return "Analysis task submitted: " + task.getTaskId() +
